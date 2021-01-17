@@ -28,3 +28,9 @@ fn sign(key: &Rsa<Private>, msg: &[u8]) -> Vec<u8> {
     signer.sign_to_vec().unwrap()
 }
 
+fn verify(key: &Rsa<Public>, msg: &[u8], sig: Vec<u8>) -> bool {
+    let pkey = PKey::from_rsa(key.clone()).unwrap();
+    let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
+    verifier.update(msg).unwrap();
+    verifier.verify(&sig).unwrap()
+}
