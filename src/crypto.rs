@@ -1,8 +1,9 @@
 use std::convert::TryInto;
-use rand::rngs::ThreadRng;
 
-use rsa::{PublicKey, RSAPrivateKey, RSAPublicKey, PaddingScheme};
+use openssl::{hash::MessageDigest, pkey::Private, rsa::Rsa, sign::{Signer, Verifier}};
 use sha2::{Sha256, Digest};
+
+
 
 type HashCode = [u8; 32];
 
@@ -12,12 +13,8 @@ fn hash_of_bytes(bs: &[u8]) -> HashCode {
     hasher.finalize().as_slice().try_into().expect("digest has wrong length")
 }
 
-fn gen_private_key() -> RSAPrivateKey {
-    let mut rng = ThreadRng::default();
-    let bits = 2048;
-    RSAPrivateKey::new(&mut rng, bits).expect("failed to generate private key")
+fn gen_key_pair() -> Rsa<Private> {
+    Rsa::generate(2048).unwrap()
 }
 
-fn private_to_public_key(k: &RSAPrivateKey) -> RSAPublicKey {
-    RSAPublicKey::from(k)
-}
+
