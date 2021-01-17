@@ -8,17 +8,22 @@ use sha2::{Sha256, Digest};
 
 pub type HashCode = [u8; 32];
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Hash<T> {
+    code: HashCode,
+    phantom: std::marker::PhantomData<T>,
+}
+
 pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
     let mut hasher = Sha256::new();
     hasher.update(bs);
     hasher.finalize().as_slice().try_into().expect("digest has wrong length")
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Hash<T> {
-    code: HashCode,
-    phantom: std::marker::PhantomData<T>,
+pub fn hash<T : Serialize, Deserialize>(v: T) -> Hash<T> {
+    Hash {code: hash_of_bytes(serde_cbor::to_vec(&v).unwrap().as_slice()), phantom: std::marker::PhantomData}
 }
+
 
 pub type Sig = Vec<u8>;
 
@@ -36,14 +41,14 @@ pub fn to_public_key(private: &Rsa<Private>) -> Rsa<Public> {
     Rsa::public_key_from_pem(private.private_key_to_pem().unwrap().as_slice()).unwrap()
 }
 
-pub fn sign(key: &Rsa<Private>, msg: &[u8]) -> Vec<u8> {
+pub fn sign_bytes(key: &Rsa<Private>, msg: &[u8]) -> Vec<u8> {
     let pkey = PKey::from_rsa(key.clone()).unwrap();
     let mut signer = Signer::new(MessageDigest::sha256(), &pkey).unwrap();
     signer.update(msg).unwrap();
     signer.sign_to_vec().unwrap()
 }
 
-pub fn verify(key: &Rsa<Public>, msg: &[u8], sig: Vec<u8>) -> bool {
+pub fn verify_bytes(key: &Rsa<Public>, msg: &[u8], sig: Vec<u8>) -> bool {
     let pkey = PKey::from_rsa(key.clone()).unwrap();
     let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
     verifier.update(msg).unwrap();
