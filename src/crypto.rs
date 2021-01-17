@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use openssl::{hash::MessageDigest, pkey::{PKey, Public, Private}, rsa::Rsa, sign::{Signer, Verifier}};
+use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 
 
@@ -13,8 +14,17 @@ pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
     hasher.finalize().as_slice().try_into().expect("digest has wrong length")
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Hash<T> {
     code: HashCode,
+    phantom: std::marker::PhantomData<T>,
+}
+
+pub type Sig = Vec<u8>;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Signature<T> {
+    sig: Sig,
     phantom: std::marker::PhantomData<T>,
 }
 
