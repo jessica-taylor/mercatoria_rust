@@ -22,7 +22,7 @@ fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
     true
 }
 
-fn rh_follow_path<HL : HashLookup, N : DeserializeOwned, GC: Fn(&N) -> Vec<(Vec<u8>, Hash<N>)>>(
+fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &Vec<(Vec<u8>, Hash<N>)>>(
     hl: &HL, get_children: GC, init_node: N, path: Vec<u8>) -> Result<(N, Vec<u8>), String> {
 
     let mut path_ix = 0;
@@ -35,8 +35,8 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned, GC: Fn(&N) -> Vec<(Vec<
         for (postfix, child_hash) in get_children(&node) {
             if is_prefix(&prefix, &postfix) {
                 found = true;
-                if prefix == postfix {
-                    node = hl.lookup(child_hash).unwrap();
+                if prefix == *postfix {
+                    node = hl.lookup((*child_hash).clone()).unwrap();
                     prefix = Vec::new();
                     break;
                 }
@@ -50,7 +50,7 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned, GC: Fn(&N) -> Vec<(Vec<
 }
 
 pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path: Vec<u8>) -> Result<(QuorumNode, Vec<u8>), String> {
-    rh_follow_path(hl, |qn| qn.body.children.clone(), node.clone(), path)
+    rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path)
 }
 
 pub fn lookup_quorum_node<HL : HashLookup>(hl: &HL, main: &MainBlockBody, path: Vec<u8>) -> Result<(QuorumNode, Vec<u8>), String> {
