@@ -8,7 +8,7 @@ use sha2::{Sha256, Digest};
 
 pub type HashCode = [u8; 32];
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Hash<T> {
     pub code: HashCode,
     phantom: std::marker::PhantomData<T>,
@@ -27,7 +27,7 @@ pub fn hash<T : Serialize, Deserialize>(v: T) -> Hash<T> {
 
 pub type Sig = Vec<u8>;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Signature<T> {
     pub sig: Sig,
     phantom: std::marker::PhantomData<T>,

@@ -2,18 +2,18 @@ use crate::crypto::{Hash, HashCode, Signature};
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlockBody {
     pub prev: Option<Hash<MainBlockBody>>,
     pub version: u64,
     pub timestamp_ms: i64,
-    pub tree: Option<Hash<QuorumNode>>,
+    pub tree: Hash<QuorumNode>,
     pub options: Hash<MainOptions>,
     // signer slashes
     // miner slashes
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MainOptions {
     pub gas_cost: u128,
     pub gas_limit: u128,
@@ -26,19 +26,19 @@ pub struct MainOptions {
     pub quorum_sizes_thresholds: Vec<(u32, u32)>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PreSignedMainBlock {
     pub body: MainBlockBody,
     pub signatures: Vec<Signature<MainBlockBody>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlock {
     pub block: PreSignedMainBlock,
     pub signature: Signature<PreSignedMainBlock>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNodeBody {
     pub last_main: Option<Hash<MainBlock>>,
     pub path: Vec<u8>,
@@ -53,19 +53,19 @@ pub struct QuorumNodeBody {
     pub total_stake: u128,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNode {
     pub body: QuorumNodeBody,
     pub signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DataNode {
     pub value: Option<Vec<u8>>,
     pub children: Vec<(Vec<u8>, Hash<DataNode>)>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Action {
     pub last_main: Hash<MainBlock>,
     pub fee: u128,
@@ -74,7 +74,7 @@ pub struct Action {
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SendInfo {
     pub last_main: Hash<MainBlock>,
     pub sender: HashCode,

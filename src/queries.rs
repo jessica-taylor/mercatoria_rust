@@ -1,5 +1,5 @@
 
-use crate::blockdata::QuorumNode;
+use crate::blockdata::{MainBlock, PreSignedMainBlock, MainBlockBody, QuorumNode, DataNode};
 use crate::crypto::{Hash, HashCode};
 use crate::hashlookup::HashLookup;
 
@@ -23,7 +23,7 @@ fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
 }
 
 fn rh_follow_path<HL : HashLookup, N : DeserializeOwned, GC: Fn(&N) -> Vec<(Vec<u8>, Hash<N>)>>(
-    hl: &HL, get_children: GC, path: Vec<u8>, init_node: N) -> Result<(N, Vec<u8>), String> {
+    hl: &HL, get_children: GC, init_node: N, path: Vec<u8>) -> Result<(N, Vec<u8>), String> {
 
     let mut path_ix = 0;
     let mut prefix = Vec::<u8>::new();
@@ -47,4 +47,12 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned, GC: Fn(&N) -> Vec<(Vec<
         }
     }
     return Ok((node, prefix));
+}
+
+pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path: Vec<u8>) -> Result<(QuorumNode, Vec<u8>), String> {
+    rh_follow_path(hl, |qn| qn.body.children.clone(), node.clone(), path)
+}
+
+pub fn lookup_quorum_node<HL : HashLookup>(hl: &HL, main: &MainBlockBody, path: Vec<u8>) -> Result<(QuorumNode, Vec<u8>), String> {
+    quorum_node_follow_path(hl, &hl.lookup(main.tree.clone())?, path)
 }
