@@ -7,17 +7,9 @@ use serde::{Serialize, de::DeserializeOwned};
 
 
 pub trait HashLookup {
-    fn lookup_bytes(&self, hash: HashCode) -> Option<Vec<u8>>;
-    fn lookup<T: DeserializeOwned>(&self, hash: Hash<T>) -> Option<T> {
-        match self.lookup_bytes(hash.code) {
-            None => None,
-            Some(bytes) => {
-                match serde_cbor::from_slice(&bytes) {
-                    Ok(x) => Some(x),
-                    Err(_e) => None,
-                }
-            }
-        }
+    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String>;
+    fn lookup<T: DeserializeOwned>(&self, hash: Hash<T>) -> Result<T, String> {
+        serde_cbor::from_slice(&self.lookup_bytes(hash.code)?).map_err(|e| e.to_string())
     }
 }
 
@@ -39,10 +31,10 @@ impl MapHashLookup {
 }
 
 impl HashLookup for MapHashLookup {
-    fn lookup_bytes(&self, hash: HashCode) -> Option<Vec<u8>> {
+    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String> {
         match self.map.get(&hash) {
-            None => None,
-            Some(x) => Some(x.clone())
+            None => Err("not found".to_string()),
+            Some(x) => Ok(x.clone())
         }
     }
 }
