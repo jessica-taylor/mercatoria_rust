@@ -105,6 +105,7 @@ dependencies = [
  "serde",
  "serde_cbor",
  "sha2",
+ "ux",
 ]
 
 [[package]]
@@ -230,6 +231,12 @@ name = "unicode-xid"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
+
+[[package]]
+name = "ux"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88dfeb711b61ce620c0cb6fd9f8e3e678622f0c971da2a63c4b3e25e88ed012f"
 
 [[package]]
 name = "vcpkg"

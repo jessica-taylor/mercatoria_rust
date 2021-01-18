@@ -41,14 +41,14 @@ pub fn to_public_key(private: &Rsa<Private>) -> Rsa<Public> {
     Rsa::public_key_from_pem(private.private_key_to_pem().unwrap().as_slice()).unwrap()
 }
 
-pub fn sign_bytes(key: &Rsa<Private>, msg: &[u8]) -> Vec<u8> {
+pub fn sign_bytes(key: &Rsa<Private>, msg: &[u8]) -> Sig {
     let pkey = PKey::from_rsa(key.clone()).unwrap();
     let mut signer = Signer::new(MessageDigest::sha256(), &pkey).unwrap();
     signer.update(msg).unwrap();
     signer.sign_to_vec().unwrap()
 }
 
-pub fn verify_bytes(key: &Rsa<Public>, msg: &[u8], sig: Vec<u8>) -> bool {
+pub fn verify_bytes(key: &Rsa<Public>, msg: &[u8], sig: Sig) -> bool {
     let pkey = PKey::from_rsa(key.clone()).unwrap();
     let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
     verifier.update(msg).unwrap();
