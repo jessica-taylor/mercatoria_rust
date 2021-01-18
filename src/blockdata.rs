@@ -8,9 +8,22 @@ pub struct MainBlockBody {
     version: u64,
     timestamp_ms: i64,
     tree: Option<Hash<QuorumNode>>,
-    options: HashCode,
+    options: Hash<MainOptions>,
     // signer slashes
     // miner slashes
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MainOptions {
+    gas_cost: u128,
+    gas_limit: u128,
+    timestamp_period_ms: u32,
+    main_block_signers: u32,
+    main_block_signatures_required: u32,
+    random_seed_period: u32,
+    quorum_period: u32,
+    max_quorum_depth: u32,
+    quorum_sizes_thresholds: Vec<(u32, u32)>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
