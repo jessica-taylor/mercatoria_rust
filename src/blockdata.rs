@@ -53,3 +53,14 @@ pub struct Action {
     command: Vec<u8>,
     args: Vec<Vec<u8>>,
 }
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SendInfo {
+    last_main: Hash<MainBlock>,
+    sender: HashCode,
+    recipient: Option<HashCode>,
+    send_amount: u128,
+    initialize_spec: Option<Hash<Vec<u8>>>,
+    message: Vec<u8>,
+}
