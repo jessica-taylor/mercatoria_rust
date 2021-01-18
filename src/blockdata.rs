@@ -31,7 +31,7 @@ pub struct QuorumNodeBody {
     path: Vec<u8>,
     children: Vec<(Vec<u8>, Hash<QuorumNode>)>,
     data_tree: Option<HashCode>,
-    new_action: Option<HashCode>,
+    new_action: Option<Hash<Action>>,
     prize: u128,
     new_nodes: u64,
     total_fee: u128,
@@ -46,3 +46,10 @@ pub struct QuorumNode {
     signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Action {
+    last_main: Hash<MainBlock>,
+    fee: u128,
+    command: Vec<u8>,
+    args: Vec<Vec<u8>>,
+}
