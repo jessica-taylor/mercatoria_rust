@@ -10,7 +10,7 @@ pub type HashCode = [u8; 32];
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hash<T> {
-    code: HashCode,
+    pub code: HashCode,
     phantom: std::marker::PhantomData<T>,
 }
 
@@ -29,7 +29,7 @@ pub type Sig = Vec<u8>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Signature<T> {
-    sig: Sig,
+    pub sig: Sig,
     phantom: std::marker::PhantomData<T>,
 }
 

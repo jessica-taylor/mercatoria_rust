@@ -4,82 +4,82 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MainBlockBody {
-    prev: Option<Hash<MainBlockBody>>,
-    version: u64,
-    timestamp_ms: i64,
-    tree: Option<Hash<QuorumNode>>,
-    options: Hash<MainOptions>,
+    pub prev: Option<Hash<MainBlockBody>>,
+    pub version: u64,
+    pub timestamp_ms: i64,
+    pub tree: Option<Hash<QuorumNode>>,
+    pub options: Hash<MainOptions>,
     // signer slashes
     // miner slashes
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MainOptions {
-    gas_cost: u128,
-    gas_limit: u128,
-    timestamp_period_ms: u32,
-    main_block_signers: u32,
-    main_block_signatures_required: u32,
-    random_seed_period: u32,
-    quorum_period: u32,
-    max_quorum_depth: u32,
-    quorum_sizes_thresholds: Vec<(u32, u32)>,
+    pub gas_cost: u128,
+    pub gas_limit: u128,
+    pub timestamp_period_ms: u32,
+    pub main_block_signers: u32,
+    pub main_block_signatures_required: u32,
+    pub random_seed_period: u32,
+    pub quorum_period: u32,
+    pub max_quorum_depth: u32,
+    pub quorum_sizes_thresholds: Vec<(u32, u32)>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PreSignedMainBlock {
-    body: MainBlockBody,
-    signatures: Vec<Signature<MainBlockBody>>,
+    pub body: MainBlockBody,
+    pub signatures: Vec<Signature<MainBlockBody>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MainBlock {
-    block: PreSignedMainBlock,
-    signature: Signature<PreSignedMainBlock>,
+    pub block: PreSignedMainBlock,
+    pub signature: Signature<PreSignedMainBlock>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QuorumNodeBody {
-    last_main: Option<Hash<MainBlock>>,
-    path: Vec<u8>,
-    children: Vec<(Vec<u8>, Hash<QuorumNode>)>,
-    data_tree: Option<Hash<DataNode>>,
-    new_action: Option<Hash<Action>>,
-    prize: u128,
-    new_nodes: u64,
-    total_fee: u128,
-    total_gas: u128,
-    total_prize: u128,
-    total_stake: u128,
+    pub last_main: Option<Hash<MainBlock>>,
+    pub path: Vec<u8>,
+    pub children: Vec<(Vec<u8>, Hash<QuorumNode>)>,
+    pub data_tree: Option<Hash<DataNode>>,
+    pub new_action: Option<Hash<Action>>,
+    pub prize: u128,
+    pub new_nodes: u64,
+    pub total_fee: u128,
+    pub total_gas: u128,
+    pub total_prize: u128,
+    pub total_stake: u128,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QuorumNode {
-    body: QuorumNodeBody,
-    signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
+    pub body: QuorumNodeBody,
+    pub signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DataNode {
-    value: Option<Vec<u8>>,
-    children: Vec<(Vec<u8>, Hash<DataNode>)>,
+    pub value: Option<Vec<u8>>,
+    pub children: Vec<(Vec<u8>, Hash<DataNode>)>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Action {
-    last_main: Hash<MainBlock>,
-    fee: u128,
-    command: Vec<u8>,
-    args: Vec<Vec<u8>>,
+    pub last_main: Hash<MainBlock>,
+    pub fee: u128,
+    pub command: Vec<u8>,
+    pub args: Vec<Vec<u8>>,
 }
 
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendInfo {
-    last_main: Hash<MainBlock>,
-    sender: HashCode,
-    recipient: Option<HashCode>,
-    send_amount: u128,
-    initialize_spec: Option<Hash<Vec<u8>>>,
-    message: Vec<u8>,
+    pub last_main: Hash<MainBlock>,
+    pub sender: HashCode,
+    pub recipient: Option<HashCode>,
+    pub send_amount: u128,
+    pub initialize_spec: Option<Hash<Vec<u8>>>,
+    pub message: Vec<u8>,
 }
