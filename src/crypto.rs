@@ -4,6 +4,8 @@ use openssl::{hash::MessageDigest, pkey::{PKey, Public, Private}, rsa::Rsa, sign
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 
+use crate::path::{Path, bytes_to_path};
+
 
 
 pub type HashCode = [u8; 32];
