@@ -1,3 +1,4 @@
+use crate::hex_path::HexPath;
 use crate::crypto::{Hash, HashCode, Signature};
 
 use serde::{Serialize, Deserialize};
@@ -41,8 +42,8 @@ pub struct MainBlock {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNodeBody {
     pub last_main: Option<Hash<MainBlock>>,
-    pub path: Vec<u8>,
-    pub children: Vec<(Vec<u8>, Hash<QuorumNode>)>,
+    pub path: HexPath,
+    pub children: Vec<(HexPath, Hash<QuorumNode>)>,
     pub data_tree: Option<Hash<DataNode>>,
     pub new_action: Option<Hash<Action>>,
     pub prize: u128,
@@ -62,7 +63,7 @@ pub struct QuorumNode {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DataNode {
     pub value: Option<Vec<u8>>,
-    pub children: Vec<(Vec<u8>, Hash<DataNode>)>,
+    pub children: Vec<(HexPath, Hash<DataNode>)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

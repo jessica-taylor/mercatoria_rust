@@ -1,14 +1,10 @@
 
+use crate::hex_path::HexPath;
 use crate::blockdata::{MainBlock, PreSignedMainBlock, MainBlockBody, QuorumNode, DataNode};
 use crate::crypto::{Hash, HashCode};
 use crate::hashlookup::HashLookup;
 
 use serde::de::DeserializeOwned;
-
-enum RHFollowPathResult<N> {
-    Found(N, Vec<u8>),
-    NotFound(N, Vec<u8>),
-}
 
 fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
     if pre.len() > full.len() {
@@ -22,11 +18,11 @@ fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
     true
 }
 
-fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &Vec<(Vec<u8>, Hash<N>)>>(
-    hl: &HL, get_children: GC, init_node: N, path: Vec<u8>) -> Result<(N, Vec<u8>), String> {
+fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &Vec<(HexPath, Hash<N>)>>(
+    hl: &HL, get_children: GC, init_node: N, path: HexPath) -> Result<(N, HexPath), String> {
 
     let mut path_ix = 0;
-    let mut prefix = Vec::<u8>::new();
+    let mut prefix = HexPath::new();
     let mut node = init_node;
     while path_ix < path.len() {
         prefix.push(path[path_ix]);
@@ -37,7 +33,7 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &
                 found = true;
                 if prefix == *postfix {
                     node = hl.lookup((*child_hash).clone()).unwrap();
-                    prefix = Vec::new();
+                    prefix = HexPath::new();
                     break;
                 }
             }
@@ -49,10 +45,10 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &
     return Ok((node, prefix));
 }
 
-pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path: Vec<u8>) -> Result<(QuorumNode, Vec<u8>), String> {
+pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path: HexPath) -> Result<(QuorumNode, HexPath), String> {
     rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path)
 }
 
-pub fn lookup_quorum_node<HL : HashLookup>(hl: &HL, main: &MainBlockBody, path: Vec<u8>) -> Result<(QuorumNode, Vec<u8>), String> {
+pub fn lookup_quorum_node<HL : HashLookup>(hl: &HL, main: &MainBlockBody, path: HexPath) -> Result<(QuorumNode, HexPath), String> {
     quorum_node_follow_path(hl, &hl.lookup(main.tree.clone())?, path)
 }
