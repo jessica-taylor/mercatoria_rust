@@ -1,5 +1,5 @@
 
-use crate::hex_path::HexPath;
+use crate::hex_path::{HexPath, bytes_to_path};
 use crate::blockdata::{MainBlock, PreSignedMainBlock, MainBlockBody, QuorumNode, DataNode};
 use crate::crypto::{Hash, HashCode};
 use crate::hashlookup::HashLookup;
@@ -42,7 +42,7 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &
             return Err("RH node not found".to_string());
         }
     }
-    return Ok((node, prefix));
+    Ok((node, prefix))
 }
 
 pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path: HexPath) -> Result<(QuorumNode, HexPath), String> {
@@ -51,4 +51,12 @@ pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path:
 
 pub fn lookup_quorum_node<HL : HashLookup>(hl: &HL, main: &MainBlockBody, path: HexPath) -> Result<(QuorumNode, HexPath), String> {
     quorum_node_follow_path(hl, &hl.lookup(main.tree.clone())?, path)
+}
+
+pub fn lookup_account<HL : HashLookup>(hl: &HL, main: &MainBlockBody, acct: HashCode) -> Result<QuorumNode, String> {
+    let (qn, postfix) = lookup_quorum_node(hl, main, bytes_to_path(&acct))?;
+    if postfix.len() != 0 {
+        return Err("account not found".to_string());
+    }
+    Ok(qn)
 }
