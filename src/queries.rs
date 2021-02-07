@@ -64,3 +64,12 @@ pub fn lookup_account<HL : HashLookup>(hl: &HL, main: &MainBlockBody, acct: Hash
 pub fn data_node_follow_path<HL : HashLookup>(hl: &HL, node: &DataNode, path: HexPath) -> Result<(DataNode, HexPath), String> {
     rh_follow_path(hl, |dn| &dn.children, node.clone(), path)
 }
+
+pub fn lookup_data_in_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, path: HexPath) -> Result<Vec<u8>, String> {
+    let top_dn = hl.lookup(qn.body.data_tree.clone().ok_or("no data tree".to_string())?)?;
+    let (dn, postfix) = data_node_follow_path(hl, &top_dn, path)?;
+    if postfix.len() != 0 {
+        return Err("data not found".to_string());
+    }
+    dn.value.ok_or("data not found".to_string())
+}
