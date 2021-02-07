@@ -7,14 +7,14 @@ use serde::{de::DeserializeOwned, Serialize};
 pub trait HashLookup {
     fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String>;
     fn lookup<T: DeserializeOwned>(&self, hash: Hash<T>) -> Result<T, String> {
-        serde_cbor::from_slice(&self.lookup_bytes(hash.code)?).map_err(|e| e.to_string())
+        rmp_serde::from_read(self.lookup_bytes(hash.code)?.as_slice()).map_err(|e| e.to_string())
     }
 }
 
 pub trait HashPut {
     fn put_bytes(&mut self, bs: Vec<u8>);
     fn put<T: Serialize>(&mut self, val: &T) {
-        self.put_bytes(serde_cbor::to_vec(val).unwrap());
+        self.put_bytes(rmp_serde::to_vec_named(val).unwrap());
     }
 }
 

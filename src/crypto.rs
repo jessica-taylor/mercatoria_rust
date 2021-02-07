@@ -22,7 +22,7 @@ pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
 /// Gets the SHA256 hash of a serialiable data value.
 pub fn hash<T: Serialize, Deserialize>(v: T) -> Hash<T> {
     Hash {
-        code: hash_of_bytes(serde_cbor::to_vec(&v).unwrap().as_slice()),
+        code: hash_of_bytes(rmp_serde::to_vec_named(&v).unwrap().as_slice()),
         phantom: std::marker::PhantomData,
     }
 }
@@ -51,34 +51,16 @@ pub fn gen_private_key() -> Keypair {
     Keypair::generate(&mut thread_rng())
 }
 
-// pub fn gen_private_key() -> Rsa<Private> {
-//     Rsa::generate(2048).unwrap()
-// }
-
-/// Converts a RSA private key to a public key.
-pub fn to_public_key(private: &Keypair) -> PublicKey {
-    private.public
-}
-
-/// Signs a byte array with a given RSA key.
-pub fn sign_bytes(key: &Keypair, msg: &[u8]) -> Sig {
-    key.sign(msg)
-}
-
-/// Verifies that a given signature of a given byte array is valid.
-pub fn verify_sig_bytes(key: &PublicKey, msg: &[u8], sig: &Sig) -> bool {
-    key.verify(msg, sig).is_ok()
-}
-
 /// Signs a serializable value with a given RSA key.
 pub fn sign<T: Serialize, Deserialize>(key: &Keypair, msg: T) -> Signature<T> {
     Signature {
-        sig: sign_bytes(key, &serde_cbor::to_vec(&msg).unwrap()),
+        sig: key.sign(&rmp_serde::to_vec_named(&msg).unwrap()),
         phantom: std::marker::PhantomData,
     }
 }
 
 /// Verifies that a given signature of a given serializable value is valid.
 pub fn verify_sig<T: Serialize, Deserialize>(key: &PublicKey, msg: &T, sig: &Signature<T>) -> bool {
-    verify_sig_bytes(key, &serde_cbor::to_vec(msg).unwrap(), &sig.sig)
+    key.verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig)
+        .is_ok()
 }
