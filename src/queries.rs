@@ -60,3 +60,7 @@ pub fn lookup_account<HL : HashLookup>(hl: &HL, main: &MainBlockBody, acct: Hash
     }
     Ok(qn)
 }
+
+pub fn data_node_follow_path<HL : HashLookup>(hl: &HL, node: &DataNode, path: HexPath) -> Result<(DataNode, HexPath), String> {
+    rh_follow_path(hl, |dn| &dn.children, node.clone(), path)
+}
