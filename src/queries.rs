@@ -1,7 +1,7 @@
 
 use crate::hex_path::{HexPath, bytes_to_path};
 use crate::blockdata::{MainBlock, PreSignedMainBlock, MainBlockBody, QuorumNode, DataNode};
-use crate::crypto::{Hash, HashCode};
+use crate::crypto::{Hash, HashCode, path_to_hash_code};
 use crate::hashlookup::HashLookup;
 
 use serde::de::DeserializeOwned;
@@ -72,4 +72,27 @@ pub fn lookup_data_in_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, path: H
         return Err("data not found".to_string());
     }
     dn.value.ok_or("data not found".to_string())
+}
+
+pub fn stake_indexed_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, stake_ix: u128) -> Result<HashCode, String> {
+    if stake_ix >= qn.body.total_stake {
+        return Err("index exceeds total stake".to_string());
+    }
+    let path = qn.body.path.clone();
+    if path.len() == 64 {
+        return Ok(path_to_hash_code(path));
+    }
+    let mut children = Vec::new();
+    for (_, child_hash) in qn.body.children.clone() {
+        children.push(hl.lookup(child_hash)?);
+    }
+    let child_stakes: Vec<u128> = children.iter().map(|ch| ch.body.total_stake).collect();
+    let mut sum_so_far = 0;
+    for i in 0..children.len() {
+        if stake_ix < sum_so_far + child_stakes[i] {
+            return stake_indexed_account(hl, qn, stake_ix - sum_so_far);
+        }
+        sum_so_far += child_stakes[i];
+    }
+    panic!("total stake does not equal sum of child node total stakes!")
 }

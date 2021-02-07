@@ -4,6 +4,7 @@ use openssl::{hash::MessageDigest, pkey::{PKey, Public, Private}, rsa::Rsa, sign
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 
+use crate::hex_path::HexPath;
 
 
 pub type HashCode = [u8; 32];
@@ -22,6 +23,17 @@ pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
 
 pub fn hash<T : Serialize, Deserialize>(v: T) -> Hash<T> {
     Hash {code: hash_of_bytes(serde_cbor::to_vec(&v).unwrap().as_slice()), phantom: std::marker::PhantomData}
+}
+
+pub fn path_to_hash_code(path: HexPath) -> HashCode {
+    if path.len() != 64 {
+        panic!("path to convert to hash code must be 64 bytes");
+    }
+    let mut hc = [0; 32];
+    for i in 0..32 {
+        hc[i] = path[2*i].value * 16 + path[2*i + 1].value;
+    }
+    hc
 }
 
 
