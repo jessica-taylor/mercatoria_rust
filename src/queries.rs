@@ -1,8 +1,7 @@
-
-use crate::hex_path::{HexPath, bytes_to_path};
-use crate::blockdata::{MainBlock, PreSignedMainBlock, MainBlockBody, QuorumNode, DataNode};
-use crate::crypto::{Hash, HashCode, path_to_hash_code};
+use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode};
+use crate::crypto::{path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
+use crate::hex_path::{bytes_to_path, HexPath};
 
 use serde::de::DeserializeOwned;
 
@@ -18,9 +17,16 @@ fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
     true
 }
 
-fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &Vec<(HexPath, Hash<N>)>>(
-    hl: &HL, get_children: GC, init_node: N, path: HexPath) -> Result<(N, HexPath), String> {
-
+fn rh_follow_path<
+    HL: HashLookup,
+    N: DeserializeOwned + Clone,
+    GC: Fn(&N) -> &Vec<(HexPath, Hash<N>)>,
+>(
+    hl: &HL,
+    get_children: GC,
+    init_node: N,
+    path: HexPath,
+) -> Result<(N, HexPath), String> {
     let mut path_ix = 0;
     let mut prefix = HexPath::new();
     let mut node = init_node;
@@ -45,15 +51,27 @@ fn rh_follow_path<HL : HashLookup, N : DeserializeOwned + Clone, GC: Fn(&N) -> &
     Ok((node, prefix))
 }
 
-pub fn quorum_node_follow_path<HL: HashLookup>(hl: &HL, node: &QuorumNode, path: HexPath) -> Result<(QuorumNode, HexPath), String> {
+pub fn quorum_node_follow_path<HL: HashLookup>(
+    hl: &HL,
+    node: &QuorumNode,
+    path: HexPath,
+) -> Result<(QuorumNode, HexPath), String> {
     rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path)
 }
 
-pub fn lookup_quorum_node<HL : HashLookup>(hl: &HL, main: &MainBlockBody, path: HexPath) -> Result<(QuorumNode, HexPath), String> {
+pub fn lookup_quorum_node<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+    path: HexPath,
+) -> Result<(QuorumNode, HexPath), String> {
     quorum_node_follow_path(hl, &hl.lookup(main.tree.clone())?, path)
 }
 
-pub fn lookup_account<HL : HashLookup>(hl: &HL, main: &MainBlockBody, acct: HashCode) -> Result<QuorumNode, String> {
+pub fn lookup_account<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+    acct: HashCode,
+) -> Result<QuorumNode, String> {
     let (qn, postfix) = lookup_quorum_node(hl, main, bytes_to_path(&acct))?;
     if postfix.len() != 0 {
         return Err("account not found".to_string());
@@ -61,12 +79,25 @@ pub fn lookup_account<HL : HashLookup>(hl: &HL, main: &MainBlockBody, acct: Hash
     Ok(qn)
 }
 
-pub fn data_node_follow_path<HL : HashLookup>(hl: &HL, node: &DataNode, path: HexPath) -> Result<(DataNode, HexPath), String> {
+pub fn data_node_follow_path<HL: HashLookup>(
+    hl: &HL,
+    node: &DataNode,
+    path: HexPath,
+) -> Result<(DataNode, HexPath), String> {
     rh_follow_path(hl, |dn| &dn.children, node.clone(), path)
 }
 
-pub fn lookup_data_in_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, path: HexPath) -> Result<Vec<u8>, String> {
-    let top_dn = hl.lookup(qn.body.data_tree.clone().ok_or("no data tree".to_string())?)?;
+pub fn lookup_data_in_account<HL: HashLookup>(
+    hl: &HL,
+    qn: &QuorumNode,
+    path: HexPath,
+) -> Result<Vec<u8>, String> {
+    let top_dn = hl.lookup(
+        qn.body
+            .data_tree
+            .clone()
+            .ok_or("no data tree".to_string())?,
+    )?;
     let (dn, postfix) = data_node_follow_path(hl, &top_dn, path)?;
     if postfix.len() != 0 {
         return Err("data not found".to_string());
@@ -74,7 +105,11 @@ pub fn lookup_data_in_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, path: H
     dn.value.ok_or("data not found".to_string())
 }
 
-pub fn stake_indexed_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, stake_ix: u128) -> Result<HashCode, String> {
+pub fn stake_indexed_account<HL: HashLookup>(
+    hl: &HL,
+    qn: &QuorumNode,
+    stake_ix: u128,
+) -> Result<HashCode, String> {
     if stake_ix >= qn.body.total_stake {
         return Err("index exceeds total stake".to_string());
     }

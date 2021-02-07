@@ -1,10 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::crypto::{Hash, HashCode, hash_of_bytes};
+use crate::crypto::{hash_of_bytes, Hash, HashCode};
 
-use serde::{Serialize, de::DeserializeOwned};
-
-
+use serde::{de::DeserializeOwned, Serialize};
 
 pub trait HashLookup {
     fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String>;
@@ -26,7 +24,9 @@ pub struct MapHashLookup {
 
 impl MapHashLookup {
     pub fn new() -> MapHashLookup {
-        MapHashLookup {map: BTreeMap::new()}
+        MapHashLookup {
+            map: BTreeMap::new(),
+        }
     }
 }
 
@@ -34,7 +34,7 @@ impl HashLookup for MapHashLookup {
     fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String> {
         match self.map.get(&hash) {
             None => Err("not found".to_string()),
-            Some(x) => Ok(x.clone())
+            Some(x) => Ok(x.clone()),
         }
     }
 }

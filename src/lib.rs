@@ -1,6 +1,5 @@
-
-mod hex_path;
-mod crypto;
 mod blockdata;
+mod crypto;
 mod hashlookup;
+mod hex_path;
 mod queries;
