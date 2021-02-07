@@ -3,7 +3,7 @@
 use serde::{Serialize, Deserialize};
 
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct u4 {
     pub value: u8,
 }
