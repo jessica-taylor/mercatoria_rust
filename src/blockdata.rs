@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlockBody {
-    pub prev: Option<Hash<MainBlockBody>>,
+    pub prev: Option<Hash<MainBlock>>,
     pub version: u64,
     pub timestamp_ms: i64,
     pub tree: Hash<QuorumNode>,

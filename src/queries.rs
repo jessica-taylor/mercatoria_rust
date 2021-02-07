@@ -74,6 +74,21 @@ pub fn lookup_data_in_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, path: H
     dn.value.ok_or("data not found".to_string())
 }
 
+pub fn block_with_version<HL : HashLookup>(hl: &HL, mb: &MainBlock, version: u64) -> Result<MainBlock, String> {
+    let v = mb.block.body.version;
+    if version > v {
+        return Err("version higher than given main block version".to_string());
+    }
+    if version == v {
+        return Ok(mb.clone());
+    }
+    match &mb.block.body.prev {
+        None => Err("tried to get version before the first block".to_string()),
+        Some(hash) => block_with_version(hl, &hl.lookup(hash.clone())?, version)
+    }
+
+}
+
 pub fn stake_indexed_account<HL : HashLookup>(hl: &HL, qn: &QuorumNode, stake_ix: u128) -> Result<HashCode, String> {
     if stake_ix >= qn.body.total_stake {
         return Err("index exceeds total stake".to_string());
