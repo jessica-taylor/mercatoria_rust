@@ -4,7 +4,7 @@ use openssl::{hash::MessageDigest, pkey::{PKey, Public, Private}, rsa::Rsa, sign
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 
-use crate::path::{Path, bytes_to_path};
+use crate::hex_path::{HexPath, bytes_to_path};
 
 
 
