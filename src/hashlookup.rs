@@ -12,9 +12,13 @@ pub trait HashLookup {
 }
 
 pub trait HashPut {
-    fn put_bytes(&mut self, bs: Vec<u8>);
-    fn put<T: Serialize>(&mut self, val: &T) {
-        self.put_bytes(rmp_serde::to_vec_named(val).unwrap());
+    fn put_bytes(&mut self, bs: &[u8]) -> HashCode;
+    fn put<T: Serialize>(&mut self, val: &T) -> Hash<T> {
+        let code = self.put_bytes(&rmp_serde::to_vec_named(val).unwrap());
+        Hash {
+            code,
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -40,7 +44,9 @@ impl HashLookup for MapHashLookup {
 }
 
 impl HashPut for MapHashLookup {
-    fn put_bytes(&mut self, bs: Vec<u8>) {
-        self.map.insert(hash_of_bytes(&bs), bs);
+    fn put_bytes(&mut self, bs: &[u8]) -> HashCode {
+        let code = hash_of_bytes(&bs);
+        self.map.insert(code, bs.to_vec());
+        code
     }
 }

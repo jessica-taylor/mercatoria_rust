@@ -11,7 +11,7 @@ pub type HashCode = [u8; 32];
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Hash<T> {
     pub code: HashCode,
-    phantom: std::marker::PhantomData<T>,
+    pub(crate) phantom: std::marker::PhantomData<T>,
 }
 
 /// Gets the SHA256 hash code of a byte array.
@@ -20,9 +20,9 @@ pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
 }
 
 /// Gets the SHA256 hash of a serialiable data value.
-pub fn hash<T: Serialize, Deserialize>(v: T) -> Hash<T> {
+pub fn hash<T: Serialize>(v: &T) -> Hash<T> {
     Hash {
-        code: hash_of_bytes(rmp_serde::to_vec_named(&v).unwrap().as_slice()),
+        code: hash_of_bytes(rmp_serde::to_vec_named(v).unwrap().as_slice()),
         phantom: std::marker::PhantomData,
     }
 }
