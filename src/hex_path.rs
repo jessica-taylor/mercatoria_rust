@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[allow(non_camel_case_types)]
 /// A hexadecimal digit.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct u4 {
