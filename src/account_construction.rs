@@ -39,3 +39,28 @@ fn cached_tree_info(qnb: &QuorumNodeBody) -> TreeInfo {
         new_quorums: 0
     }
 }
+
+impl TreeInfo {
+    fn zero() -> TreeInfo {
+        TreeInfo {
+            fee: 0,
+            gas: 0,
+            new_nodes: 0,
+            prize: 0,
+            stake: 0,
+            new_transactions: 0,
+            new_quorums: 0
+        }
+    }
+    fn plus(self: &TreeInfo, other: &TreeInfo) -> TreeInfo {
+        TreeInfo {
+            fee: self.fee + other.fee,
+            gas: self.gas + other.gas,
+            new_nodes: self.new_nodes + other.new_nodes,
+            prize: self.prize + other.prize,
+            stake: self.stake + other.stake,
+            new_transactions: self.new_transactions + other.new_transactions,
+            new_quorums: self.new_quorums + other.new_quorums
+        }
+    }
+}
