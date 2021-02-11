@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody};
+use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, SendInfo};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
@@ -52,7 +52,7 @@ pub struct AccountTransform<'a, HL : HashLookup> {
     pub is_initializing: bool,
     pub this_account: HashCode,
     pub hash_last_main: Hash<MainBlock>,
-    fields_set: BTreeMap<HexPath, Vec<u8>>,
+    pub fields_set: BTreeMap<HexPath, Vec<u8>>,
 }
 
 
@@ -124,3 +124,7 @@ pub fn pay_fee<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, fee: u128
     }
     at.set_data_field(&field_balance(), &(bal - fee))
 }
+
+// pub fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendInfo) -> Result<(), String> {
+// 
+// }
