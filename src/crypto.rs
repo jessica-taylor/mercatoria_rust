@@ -77,6 +77,14 @@ impl<T> Clone for Signature<T> {
 
 impl<T> Copy for Signature<T> {}
 
+impl<T> PartialEq for Signature<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.sig == other.sig
+    }
+}
+
+impl<T> Eq for Signature<T> {}
+
 /// Generates a ed25519 private key.
 pub fn gen_private_key() -> Keypair {
     Keypair::generate(&mut thread_rng())
