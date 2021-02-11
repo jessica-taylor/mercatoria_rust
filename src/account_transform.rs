@@ -42,7 +42,7 @@ pub fn field_balance() -> TypedDataField<u128> {
 pub fn field_stake() -> TypedDataField<u128> {
     TypedDataField::from_path(bytes_to_path(b"balance"))
 }
-pub fn field_public_key() -> TypedDataField<Vec<u8>> {
+pub fn field_public_key() -> TypedDataField<ed25519_dalek::PublicKey> {
     TypedDataField::from_path(bytes_to_path(b"public_key"))
 }
 pub fn field_send(send: Hash<SendInfo>) -> TypedDataField<SendInfo> {
@@ -216,6 +216,17 @@ pub fn run_action<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, action
         };
         do_send(at, &send)?;
     } else if action.command == b"receive" {
+        let sender: HashCode = get_arg(&action.args, 0)?;
+        let send_hash: Hash<SendInfo> = get_arg(&action.args, 1)?;
+        let sig: Signature<Action> = get_arg(&action.args, 2)?;
+        verify_signature_argument(at.this_account, action, 2)?;
+        if at.is_initializing {
+            at.set_data_field(&field_balance(), &0)?;
+            at.set_data_field(&field_stake(), &0)?;
+            at.set_data_field(&field_public_key(), &sig.key)?;
+        }
+        do_receive(at, sender, send_hash)?;
+        pay_fee(at, action.fee)?;
     } else {
         bail!("unknown command {:?}", action.command);
     }
