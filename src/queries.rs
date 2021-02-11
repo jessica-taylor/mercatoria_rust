@@ -1,5 +1,5 @@
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode};
-use crate::crypto::{path_to_hash_code, Hash, HashCode};
+use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
 
@@ -106,22 +106,32 @@ pub fn lookup_data_in_account<HL: HashLookup>(
 }
 
 pub fn block_with_version<HL : HashLookup>(
-    hl: &HL, mb: &MainBlock,
+    hl: &HL,
+    mb: &MainBlockBody,
     version: u64
-) -> Result<MainBlock, String> {
-    let v = mb.block.body.version;
+) -> Result<MainBlockBody, String> {
+    let v = mb.version;
     if version > v {
         return Err("version higher than given main block version".to_string());
     }
     if version == v {
         return Ok(mb.clone());
     }
-    match &mb.block.body.prev {
+    match &mb.prev {
         None => Err("tried to get version before the first block".to_string()),
-        Some(hash) => block_with_version(hl, &hl.lookup(hash.clone())?, version)
+        Some(hash) => block_with_version(hl, &hl.lookup(hash.clone())?.block.body, version)
     }
-
 }
+
+pub fn random_seed_of_block<HL : HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody
+) -> Result<HashCode, String> {
+    let period = hl.lookup(main.options.clone())?.random_seed_period;
+    let version_to_get = main.version / u64::from(period) * u64::from(period);
+    Ok(hash(&block_with_version(hl, main, version_to_get)?).code)
+}
+
 
 pub fn stake_indexed_account<HL: HashLookup>(
     hl: &HL,
