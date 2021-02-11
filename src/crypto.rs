@@ -63,13 +63,21 @@ pub fn path_to_hash_code(path: HexPath) -> HashCode {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Signature<T> {
     pub sig: Sig,
+    pub key: PublicKey,
     phantom: std::marker::PhantomData<T>,
+}
+
+impl<T> Signature<T> {
+    pub fn account(&self) -> HashCode {
+        hash(&self.key).code
+    }
 }
 
 impl<T> Clone for Signature<T> {
     fn clone(&self) -> Self {
         Self {
             sig: self.sig,
+            key: self.key,
             phantom: PhantomData,
         }
     }
@@ -91,15 +99,15 @@ pub fn gen_private_key() -> Keypair {
 }
 
 /// Signs a serializable value with a given ed25519 key.
-pub fn sign<T: Serialize, Deserialize>(key: &Keypair, msg: T) -> Signature<T> {
+pub fn sign<T: Serialize>(key: &Keypair, msg: T) -> Signature<T> {
     Signature {
         sig: key.sign(&rmp_serde::to_vec_named(&msg).unwrap()),
+        key: key.public,
         phantom: std::marker::PhantomData,
     }
 }
 
 /// Verifies that a given signature of a given serializable value is valid.
-pub fn verify_sig<T: Serialize, Deserialize>(key: &PublicKey, msg: &T, sig: &Signature<T>) -> bool {
-    key.verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig)
-        .is_ok()
+pub fn verify_sig<T: Serialize>(msg: &T, sig: &Signature<T>) -> bool {
+    sig.key.verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig).is_ok()
 }
