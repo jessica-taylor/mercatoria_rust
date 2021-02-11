@@ -12,6 +12,7 @@ async-trait = "0.1.42"
 blake3 = "0.3.7"
 chrono = { version = "0.4.19", features = ["serde"] }
 ed25519-dalek = { version = "1.0.1", features = ["serde"] }
+futures-lite = "1.11.3"
 rand = "0.7"
 rmp-serde = "0.15.4"
 serde = {version = "1.0", features = ["derive"]}
