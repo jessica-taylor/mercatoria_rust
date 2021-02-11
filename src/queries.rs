@@ -27,7 +27,7 @@ fn rh_follow_path<
     hl: &HL,
     get_children: GC,
     init_node: N,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(N, HexPath), String> {
     let mut path_ix = 0;
     let mut prefix = HexPath::new();
@@ -59,7 +59,7 @@ fn rh_follow_path<
 pub fn quorum_node_follow_path<HL: HashLookup>(
     hl: &HL,
     node: &QuorumNode,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(QuorumNode, HexPath), String> {
     rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path)
 }
@@ -68,7 +68,7 @@ pub fn quorum_node_follow_path<HL: HashLookup>(
 pub fn lookup_quorum_node<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(QuorumNode, HexPath), String> {
     quorum_node_follow_path(hl, &hl.lookup(main.tree)?, path)
 }
@@ -79,7 +79,7 @@ pub fn lookup_account<HL: HashLookup>(
     main: &MainBlockBody,
     acct: HashCode,
 ) -> Result<QuorumNode, String> {
-    let (qn, postfix) = lookup_quorum_node(hl, main, bytes_to_path(&acct))?;
+    let (qn, postfix) = lookup_quorum_node(hl, main, &bytes_to_path(&acct))?;
     if postfix.len() != 0 {
         return Err("account not found".to_string());
     }
@@ -92,7 +92,7 @@ pub fn lookup_account<HL: HashLookup>(
 pub fn data_node_follow_path<HL: HashLookup>(
     hl: &HL,
     node: &DataNode,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(DataNode, HexPath), String> {
     rh_follow_path(hl, |dn| &dn.children, node.clone(), path)
 }
@@ -101,8 +101,8 @@ pub fn data_node_follow_path<HL: HashLookup>(
 pub fn lookup_data_in_account<HL: HashLookup>(
     hl: &HL,
     qn: &QuorumNode,
-    path: HexPath,
-) -> Result<Vec<u8>, String> {
+    path: &HexPath,
+) -> Result<Option<Vec<u8>>, String> {
     let top_dn = hl.lookup(
         qn.body
             .data_tree
@@ -110,9 +110,9 @@ pub fn lookup_data_in_account<HL: HashLookup>(
     )?;
     let (dn, postfix) = data_node_follow_path(hl, &top_dn, path)?;
     if postfix.len() != 0 {
-        return Err("data not found".to_string());
+        return Ok(None);
     }
-    dn.value.ok_or("data not found".to_string())
+    Ok(dn.value)
 }
 
 /// Finds a block with a given version starting from the given block
