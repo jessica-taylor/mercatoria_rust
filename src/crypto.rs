@@ -26,6 +26,14 @@ impl<T> Clone for Hash<T> {
 
 impl<T> Copy for Hash<T> {}
 
+impl<T> PartialEq for Hash<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code
+    }
+}
+
+impl<T> Eq for Hash<T> {}
+
 /// Gets the blake3 hash code of a byte array.
 pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
     blake3::hash(bs).into()

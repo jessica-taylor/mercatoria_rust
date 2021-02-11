@@ -45,6 +45,16 @@ pub fn field_stake() -> TypedDataField<u128> {
 pub fn field_public_key() -> TypedDataField<Vec<u8>> {
     TypedDataField::from_path(bytes_to_path(b"public_key"))
 }
+pub fn field_send(send: Hash<SendInfo>) -> TypedDataField<SendInfo> {
+    let mut path = bytes_to_path(b"send");
+    path.extend(&bytes_to_path(&send.code));
+    TypedDataField::from_path(path)
+}
+pub fn field_received(send: Hash<SendInfo>) -> TypedDataField<bool> {
+    let mut path = bytes_to_path(b"received");
+    path.extend(&bytes_to_path(&send.code));
+    TypedDataField::from_path(path)
+}
 
 
 /// A context providing operations related to transforming accounts (e.g.
@@ -124,6 +134,22 @@ pub fn pay_fee<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, fee: u128
     at.set_data_field(&field_balance(), &(bal - fee))
 }
 
-// pub fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendInfo) -> Result<(), anyhow::Error> {
-// 
-// }
+pub fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendInfo) -> Result<(), anyhow::Error> {
+    if send.sender != at.this_account {
+        bail!("sender must be sent by this account");
+    }
+    if send.last_main != at.hash_last_main {
+        bail!("last main of send must be the current last main");
+    }
+    let bal = at.get_data_field_or_error(at.this_account, &field_balance())?;
+    if bal < send.send_amount {
+        bail!("not enough balance for send");
+    }
+    let send_df = field_send(hash(send));
+    if at.get_data_field(at.this_account, &send_df)?.is_some() {
+        bail!("that was already sent");
+    }
+    at.set_data_field(&field_balance(), &(bal - send.send_amount))?;
+    at.set_data_field(&send_df, send)?;
+    Ok(())
+}
