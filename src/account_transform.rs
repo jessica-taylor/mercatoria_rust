@@ -153,3 +153,22 @@ pub fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &Se
     at.set_data_field(&send_df, send)?;
     Ok(())
 }
+
+pub fn do_receive<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, sender: HashCode, send_hash: Hash<SendInfo>) -> Result<SendInfo, anyhow::Error> {
+    let send = at.get_data_field_or_error(sender, &field_send(send_hash))?;
+    if hash(&send) != send_hash {
+        bail!("send hashes don't match");
+    }
+    if send.recipient != Some(at.this_account) {
+        bail!("recipient of send doesn't match recipient");
+    }
+    let received_field = field_received(send_hash);
+    let already_received = at.get_data_field(at.this_account, &received_field)?;
+    if already_received == Some(true) {
+        bail!("tried to receive the same send twice");
+    }
+    let bal = at.get_data_field_or_error(at.this_account, &field_balance())?;
+    at.set_data_field(&field_balance(), &(bal + send.send_amount))?;
+    at.set_data_field(&received_field, &true)?;
+    Ok(send)
+}
