@@ -36,20 +36,30 @@ impl<T> TypedDataField<T> {
     }
 }
 
+/// Account balance field.
 pub fn field_balance() -> TypedDataField<u128> {
     TypedDataField::from_path(bytes_to_path(b"balance"))
 }
+
+/// Account stake field.
 pub fn field_stake() -> TypedDataField<u128> {
     TypedDataField::from_path(bytes_to_path(b"balance"))
 }
+
+/// Account public key field.
 pub fn field_public_key() -> TypedDataField<ed25519_dalek::PublicKey> {
     TypedDataField::from_path(bytes_to_path(b"public_key"))
 }
+
+/// Field for a `SendInfo` stored in the sender's data.
 pub fn field_send(send: Hash<SendInfo>) -> TypedDataField<SendInfo> {
     let mut path = bytes_to_path(b"send");
     path.extend(&bytes_to_path(&send.code));
     TypedDataField::from_path(path)
 }
+
+/// Field for tracking whether a `SendInfo` has been received in the receiver's
+/// data.
 pub fn field_received(send: Hash<SendInfo>) -> TypedDataField<bool> {
     let mut path = bytes_to_path(b"received");
     path.extend(&bytes_to_path(&send.code));
@@ -76,6 +86,7 @@ impl<'a, HL : HashLookup> HashLookup for AccountTransform<'a, HL> {
 
 impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
 
+    /// Creates a new `AccountTransform`.
     fn new(hl: &'a HL, is_initializing: bool, this_account: HashCode, last_main: Hash<MainBlock>) -> AccountTransform<'a, HL> {
         AccountTransform {
             hl, is_initializing, this_account, last_main,
@@ -126,6 +137,7 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
     }
 }
 
+/// Causes the current account to pay a fee.
 fn pay_fee<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, fee: u128) -> Result<(), anyhow::Error> {
     let bal = at.get_data_field_or_error(at.this_account, &field_balance())?;
     if bal < fee {
@@ -134,6 +146,7 @@ fn pay_fee<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, fee: u128) ->
     at.set_data_field(&field_balance(), &(bal - fee))
 }
 
+/// Causes the current account to send.
 fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendInfo) -> Result<(), anyhow::Error> {
     if send.sender != at.this_account {
         bail!("sender must be sent by this account");
@@ -154,6 +167,7 @@ fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendIn
     Ok(())
 }
 
+/// Causes the current account to receive.
 fn do_receive<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, sender: HashCode, send_hash: Hash<SendInfo>) -> Result<SendInfo, anyhow::Error> {
     let send = at.get_data_field_or_error(sender, &field_send(send_hash))?;
     if hash(&send) != send_hash {
@@ -173,6 +187,7 @@ fn do_receive<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, sender: Ha
     Ok(send)
 }
 
+/// Gets an argument out of action arguments.
 fn get_arg<T : DeserializeOwned>(args: &Vec<Vec<u8>>, i: usize) -> Result<T, anyhow::Error> {
     if i >= args.len() {
         bail!("too few arguments");
@@ -180,6 +195,10 @@ fn get_arg<T : DeserializeOwned>(args: &Vec<Vec<u8>>, i: usize) -> Result<T, any
     Ok(rmp_serde::from_read(args[i].as_slice())?)
 }
 
+/// Verifies that the argument at a given index is a signature of a modified
+/// version of the action where the signature itself is replaced with
+/// an empty vector, and also that the signature's account matches the
+/// given account.
 fn verify_signature_argument(acct: HashCode, action: &Action, i: usize) -> Result<(), anyhow::Error> {
     let sig: Signature<Action> = get_arg(&action.args, i)?;
     if sig.account() != acct {
@@ -194,6 +213,7 @@ fn verify_signature_argument(acct: HashCode, action: &Action, i: usize) -> Resul
 
 }
 
+/// Runs an action in a given `AccountTransform` context.
 pub fn run_action<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, action: &Action) -> Result<(), anyhow::Error> {
     if at.last_main != action.last_main {
         bail!("action last main must equal current last main");
