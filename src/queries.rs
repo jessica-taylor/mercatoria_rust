@@ -5,6 +5,7 @@ use crate::hex_path::{bytes_to_path, HexPath};
 
 use serde::de::DeserializeOwned;
 
+/// Is the first vector a prefix of the second?
 fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
     if pre.len() > full.len() {
         return false;
@@ -17,6 +18,7 @@ fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
     true
 }
 
+/// Follows a path in a radix hash tree.
 fn rh_follow_path<
     HL: HashLookup,
     N: DeserializeOwned + Clone,
@@ -25,7 +27,7 @@ fn rh_follow_path<
     hl: &HL,
     get_children: GC,
     init_node: N,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(N, HexPath), String> {
     let mut path_ix = 0;
     let mut prefix = HexPath::new();
@@ -51,47 +53,56 @@ fn rh_follow_path<
     Ok((node, prefix))
 }
 
+/// Follows a path starting from a `QuorumNode` going down.  Returns a node
+/// along with the extra path starting from that node, which is always
+/// a postfix of the original path.
 pub fn quorum_node_follow_path<HL: HashLookup>(
     hl: &HL,
     node: &QuorumNode,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(QuorumNode, HexPath), String> {
     rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path)
 }
 
+/// Looks up a quorum node in a given main block body.
 pub fn lookup_quorum_node<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(QuorumNode, HexPath), String> {
     quorum_node_follow_path(hl, &hl.lookup(main.tree)?, path)
 }
 
+/// Looks up an account in a given main block body.
 pub fn lookup_account<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
     acct: HashCode,
 ) -> Result<QuorumNode, String> {
-    let (qn, postfix) = lookup_quorum_node(hl, main, bytes_to_path(&acct))?;
+    let (qn, postfix) = lookup_quorum_node(hl, main, &bytes_to_path(&acct))?;
     if postfix.len() != 0 {
         return Err("account not found".to_string());
     }
     Ok(qn)
 }
 
+/// Follows a path starting from a `DataNode` going down.  Returns a node
+/// along with the extra path starting from that node, which is always
+/// a postfix of the original path.
 pub fn data_node_follow_path<HL: HashLookup>(
     hl: &HL,
     node: &DataNode,
-    path: HexPath,
+    path: &HexPath,
 ) -> Result<(DataNode, HexPath), String> {
     rh_follow_path(hl, |dn| &dn.children, node.clone(), path)
 }
 
+/// Looks up data given an account `QuorumNode`.
 pub fn lookup_data_in_account<HL: HashLookup>(
     hl: &HL,
     qn: &QuorumNode,
-    path: HexPath,
-) -> Result<Vec<u8>, String> {
+    path: &HexPath,
+) -> Result<Option<Vec<u8>>, String> {
     let top_dn = hl.lookup(
         qn.body
             .data_tree
@@ -99,11 +110,13 @@ pub fn lookup_data_in_account<HL: HashLookup>(
     )?;
     let (dn, postfix) = data_node_follow_path(hl, &top_dn, path)?;
     if postfix.len() != 0 {
-        return Err("data not found".to_string());
+        return Ok(None);
     }
-    dn.value.ok_or("data not found".to_string())
+    Ok(dn.value)
 }
 
+/// Finds a block with a given version starting from the given block
+/// going backwards.
 pub fn block_with_version<HL : HashLookup>(
     hl: &HL,
     mb: &MainBlockBody,
@@ -122,8 +135,10 @@ pub fn block_with_version<HL : HashLookup>(
     }
 }
 
+/// Gets the random seed for a given main block.  The random seed changes
+/// with a period equal to `random_seed_period` in the main options.
 /// TODO real randomness
-pub fn random_seed_of_block<HL : HashLookup>(
+fn random_seed_of_block<HL : HashLookup>(
     hl: &HL,
     main: &MainBlockBody
 ) -> Result<HashCode, String> {
@@ -133,7 +148,12 @@ pub fn random_seed_of_block<HL : HashLookup>(
 }
 
 
-pub fn stake_indexed_account<HL: HashLookup>(
+/// Gets the account whose stake corresponds to the given index.
+/// We can imagine lining all accounts in a tree side-by-side, with
+/// the length of the account proportional to its stake; the index
+/// determines how far along this line to go to select an account,
+/// enabling randomly selecting an account proportional to its stake.
+fn stake_indexed_account<HL: HashLookup>(
     hl: &HL,
     qn: &QuorumNode,
     stake_ix: u128,
@@ -160,6 +180,9 @@ pub fn stake_indexed_account<HL: HashLookup>(
     panic!("total stake does not equal sum of child node total stakes!")
 }
 
+/// Gets a random account proportional to its stake.  This function is
+/// technically deterministic; its randomness is determined by the
+/// `seed` and `rand_id` parameters.
 pub fn random_account<HL : HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
@@ -186,3 +209,45 @@ pub fn random_account<HL : HashLookup>(
     stake_indexed_account(hl, &top, rand_val % top.body.total_stake)
 }
 
+/// Gets the miner and signers of a block following a given block.
+pub fn miner_and_signers_by_prev_block<HL : HashLookup>(
+    hl: &HL,
+    main: &MainBlock
+) -> Result<(HashCode, Vec<HashCode>), String> {
+    let body = &main.block.body;
+    let num_signers = hl.lookup(body.options)?.main_block_signers;
+    let seed = random_seed_of_block(hl, body)?;
+    let miner = random_account(hl, body, seed, "miner".to_string())?;
+    let mut signers = Vec::new();
+    for i in 0..num_signers {
+        signers.push(random_account(hl, body, seed, format!("signer {}", i))?);
+    }
+    Ok((miner, signers))
+}
+
+/// Selects quorums for a given path, given the block before the block of
+/// the relevant quorum tree.
+pub fn quorums_by_prev_block<HL : HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+    path: HexPath
+) -> Result<Vec<(Vec<HashCode>, u32)>, String> {
+    let sizes_thresholds = hl.lookup(main.options)?.quorum_sizes_thresholds;
+    let period = hl.lookup(main.options)?.quorum_period;
+    let mut base_version = main.version / u64::from(period) * u64::from(period);
+    if base_version > 0 {
+        base_version = base_version - u64::from(period);
+    }
+    let rand_acct_main = block_with_version(hl, main, base_version)?;
+    let seed = random_seed_of_block(hl, &rand_acct_main)?;
+    let mut quorums = Vec::new();
+    for i in 0..sizes_thresholds.len() {
+        let (size, threshold) = sizes_thresholds[i];
+        let mut members = Vec::new();
+        for j in 0..size {
+            members.push(random_account(hl, &rand_acct_main, seed, format!("quorum {:?} {} {}", path, i, j))?);
+        }
+        quorums.push((members, threshold));
+    }
+    Ok(quorums)
+}
