@@ -2,12 +2,14 @@ use std::marker::PhantomData;
 use std::collections::BTreeMap;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use anyhow::bail;
 
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, SendInfo};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{lookup_account, lookup_data_in_account};
+
 
 /// An typed account data field.
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,7 +59,7 @@ pub struct AccountTransform<'a, HL : HashLookup> {
 
 
 impl<'a, HL : HashLookup> HashLookup for AccountTransform<'a, HL> {
-    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String> {
+    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, anyhow::Error> {
         self.hl.lookup_bytes(hash)
     }
 }
@@ -72,7 +74,7 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
     }
 
     /// Gets the value of a given data field.
-    fn get_data_field_bytes(&self, acct: HashCode, field_name: &HexPath) -> Result<Option<Vec<u8>>, String> {
+    fn get_data_field_bytes(&self, acct: HashCode, field_name: &HexPath) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if acct == self.this_account {
             match self.fields_set.get(field_name) {
                 Some(x) => {
@@ -87,44 +89,41 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
     }
 
     /// Sets the value of a given data field.
-    fn set_data_field_bytes(&mut self, field_name: &HexPath, value: Vec<u8>) -> Result<(), String> {
+    fn set_data_field_bytes(&mut self, field_name: &HexPath, value: Vec<u8>) -> Result<(), anyhow::Error> {
         self.fields_set.insert(field_name.clone(), value);
         Ok(())
     }
 
     /// Gets the value of a given typed data field.
-    fn get_data_field<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<Option<T>, String> {
+    fn get_data_field<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<Option<T>, anyhow::Error> {
         match self.get_data_field_bytes(acct, &field.path)? {
             None => Ok(None),
-            Some(bs) => match rmp_serde::from_read(bs.as_slice()) {
-                Ok(val) => Ok(Some(val)),
-                Err(e) => Err(e.to_string())
-            }
+            Some(bs) => Ok(Some(rmp_serde::from_read(bs.as_slice())?))
         }
     }
 
     /// Gets the value of a given typed data field, throwing an error if it is not found.
-    fn get_data_field_or_error<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<T, String> {
+    fn get_data_field_or_error<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<T, anyhow::Error> {
         match self.get_data_field(acct, field)? {
-            None => Err(format!("data field not found: {:?}", field.path)),
+            None => bail!("data field not found: {:?}", field.path),
             Some(x) => Ok(x)
         }
     }
 
     /// Sets the value of a given typed data field.
-    fn set_data_field<T : Serialize>(&mut self, field: &TypedDataField<T>, value: &T) -> Result<(), String> {
+    fn set_data_field<T : Serialize>(&mut self, field: &TypedDataField<T>, value: &T) -> Result<(), anyhow::Error> {
         self.set_data_field_bytes(&field.path, rmp_serde::to_vec_named(value).unwrap())
     }
 }
 
-pub fn pay_fee<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, fee: u128) -> Result<(), String> {
+pub fn pay_fee<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, fee: u128) -> Result<(), anyhow::Error> {
     let bal = at.get_data_field_or_error(at.this_account, &field_balance())?;
     if bal < fee {
-        return Err("not enough balance for fee".to_string());
+        bail!("not enough balance for fee");
     }
     at.set_data_field(&field_balance(), &(bal - fee))
 }
 
-// pub fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendInfo) -> Result<(), String> {
+// pub fn do_send<'a, HL : HashLookup>(at: &mut AccountTransform<'a, HL>, send: &SendInfo) -> Result<(), anyhow::Error> {
 // 
 // }
