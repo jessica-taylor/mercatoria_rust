@@ -38,7 +38,7 @@ fn rh_follow_path<
             if is_prefix(&prefix, &postfix) {
                 found = true;
                 if prefix == *postfix {
-                    node = hl.lookup((*child_hash).clone()).unwrap();
+                    node = hl.lookup(*child_hash).unwrap();
                     prefix = HexPath::new();
                     break;
                 }
@@ -64,7 +64,7 @@ pub fn lookup_quorum_node<HL: HashLookup>(
     main: &MainBlockBody,
     path: HexPath,
 ) -> Result<(QuorumNode, HexPath), String> {
-    quorum_node_follow_path(hl, &hl.lookup(main.tree.clone())?, path)
+    quorum_node_follow_path(hl, &hl.lookup(main.tree)?, path)
 }
 
 pub fn lookup_account<HL: HashLookup>(
@@ -95,7 +95,6 @@ pub fn lookup_data_in_account<HL: HashLookup>(
     let top_dn = hl.lookup(
         qn.body
             .data_tree
-            .clone()
             .ok_or("no data tree".to_string())?,
     )?;
     let (dn, postfix) = data_node_follow_path(hl, &top_dn, path)?;
@@ -123,11 +122,12 @@ pub fn block_with_version<HL : HashLookup>(
     }
 }
 
+/// TODO real randomness
 pub fn random_seed_of_block<HL : HashLookup>(
     hl: &HL,
     main: &MainBlockBody
 ) -> Result<HashCode, String> {
-    let period = hl.lookup(main.options.clone())?.random_seed_period;
+    let period = hl.lookup(main.options)?.random_seed_period;
     let version_to_get = main.version / u64::from(period) * u64::from(period);
     Ok(hash(&block_with_version(hl, main, version_to_get)?).code)
 }
@@ -159,3 +159,24 @@ pub fn stake_indexed_account<HL: HashLookup>(
     }
     panic!("total stake does not equal sum of child node total stakes!")
 }
+
+// pub fn random_account<HL : HashLookup>(
+//     hl: &HL,
+//     main: &MainBlockBody,
+//     seed: HashCode,
+//     rand_id: String
+// ) -> Result<HashCode, String> {
+//     let rand_period = hl.lookup(main.options)?.random_seed_period;
+//     let mut rounded = main.version / u64::from(rand_period) * u64::from(rand_period);
+//     if rounded > 0 {
+//         rounded = rounded - rand_period;
+//     }
+//     let stake_main = block_with_version(hl, main, rounded)?;
+//     let top = hl.lookup(stake_main.tree);
+//     if top.body.total_stake == 0 {
+//         Err("can't select random account when there is no stake")
+//     }
+// 
+//     stake_indexed_account(hl, top, rand % top.body.total_stake)
+// }
+
