@@ -160,23 +160,29 @@ pub fn stake_indexed_account<HL: HashLookup>(
     panic!("total stake does not equal sum of child node total stakes!")
 }
 
-// pub fn random_account<HL : HashLookup>(
-//     hl: &HL,
-//     main: &MainBlockBody,
-//     seed: HashCode,
-//     rand_id: String
-// ) -> Result<HashCode, String> {
-//     let rand_period = hl.lookup(main.options)?.random_seed_period;
-//     let mut rounded = main.version / u64::from(rand_period) * u64::from(rand_period);
-//     if rounded > 0 {
-//         rounded = rounded - rand_period;
-//     }
-//     let stake_main = block_with_version(hl, main, rounded)?;
-//     let top = hl.lookup(stake_main.tree);
-//     if top.body.total_stake == 0 {
-//         Err("can't select random account when there is no stake")
-//     }
-// 
-//     stake_indexed_account(hl, top, rand % top.body.total_stake)
-// }
+pub fn random_account<HL : HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+    seed: HashCode,
+    rand_id: String
+) -> Result<HashCode, String> {
+    let rand_period = hl.lookup(main.options)?.random_seed_period;
+    let mut rounded = main.version / u64::from(rand_period) * u64::from(rand_period);
+    if rounded > 0 {
+        rounded = rounded - u64::from(rand_period);
+    }
+    let stake_main = block_with_version(hl, main, rounded)?;
+    let top = hl.lookup(stake_main.tree)?;
+    if top.body.total_stake == 0 {
+        return Err("can't select random account when there is no stake".to_string());
+    }
+    let full_id = format!("random_account {:?} {} {}", seed, main.version, rand_id);
+    let rand_hash = hash(&full_id).code;
+    let mut rand_val: u128 = 0;
+    for i in 0..16 {
+        rand_val *= 256;
+        rand_val += u128::from(rand_hash[i]);
+    }
+    stake_indexed_account(hl, &top, rand_val % top.body.total_stake)
+}
 
