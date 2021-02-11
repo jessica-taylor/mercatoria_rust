@@ -1,6 +1,7 @@
 use ed25519_dalek::{Keypair, PublicKey, Signature as Sig, Signer, Verifier};
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 use crate::hex_path::HexPath;
 
@@ -8,11 +9,22 @@ use crate::hex_path::HexPath;
 pub type HashCode = [u8; 32];
 
 /// A SHA256 hash code that is tagged as being a hash code of a particular serializable type.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Hash<T> {
     pub code: HashCode,
     pub(crate) phantom: std::marker::PhantomData<T>,
 }
+
+impl<T> Clone for Hash<T> {
+    fn clone(&self) -> Self {
+        Self {
+            code: self.code,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Copy for Hash<T> {}
 
 /// Gets the SHA256 hash code of a byte array.
 pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
@@ -40,11 +52,22 @@ pub fn path_to_hash_code(path: HexPath) -> HashCode {
 }
 
 /// A RSA signature that is tagged as being the signature of a particular serializable type.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Signature<T> {
     pub sig: Sig,
     phantom: std::marker::PhantomData<T>,
 }
+
+impl<T> Clone for Signature<T> {
+    fn clone(&self) -> Self {
+        Self {
+            sig: self.sig,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Copy for Signature<T> {}
 
 /// Generates a RSA private key.
 pub fn gen_private_key() -> Keypair {
