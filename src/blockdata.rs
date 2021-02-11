@@ -1,7 +1,7 @@
-use crate::hex_path::HexPath;
 use crate::crypto::{Hash, HashCode, Signature};
+use crate::hex_path::HexPath;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlockBody {
@@ -73,7 +73,6 @@ pub struct Action {
     pub command: Vec<u8>,
     pub args: Vec<Vec<u8>>,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SendInfo {
