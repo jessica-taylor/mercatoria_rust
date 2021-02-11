@@ -7,7 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.38"
+async-trait = "0.1.42"
 blake3 = "0.3.7"
+chrono = { version = "0.4.19", features = ["serde"] }
 ed25519-dalek = { version = "1.0.1", features = ["serde"] }
 rand = "0.7"
 rmp-serde = "0.15.4"
