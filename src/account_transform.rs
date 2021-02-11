@@ -101,6 +101,14 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
         }
     }
 
+    /// Gets the value of a given typed data field, throwing an error if it is not found.
+    fn get_data_field_or_error<T : DeserializeOwned>(&self, field: &TypedDataField<T>) -> Result<T, String> {
+        match self.get_data_field(field)? {
+            None => Err(format!("data field not found: {:?}", field.path)),
+            Some(x) => Ok(x)
+        }
+    }
+
     /// Sets the value of a given typed data field.
     fn set_data_field<T : Serialize>(&mut self, field: &TypedDataField<T>, value: &T) -> Result<(), String> {
         self.set_data_field_bytes(&field.path, rmp_serde::to_vec_named(value).unwrap())
