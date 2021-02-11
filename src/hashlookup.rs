@@ -3,11 +3,12 @@ use std::collections::BTreeMap;
 use crate::crypto::{hash_of_bytes, Hash, HashCode};
 
 use serde::{de::DeserializeOwned, Serialize};
+use anyhow::bail;
 
 pub trait HashLookup {
-    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String>;
-    fn lookup<T: DeserializeOwned>(&self, hash: Hash<T>) -> Result<T, String> {
-        rmp_serde::from_read(self.lookup_bytes(hash.code)?.as_slice()).map_err(|e| e.to_string())
+    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, anyhow::Error>;
+    fn lookup<T: DeserializeOwned>(&self, hash: Hash<T>) -> Result<T, anyhow::Error> {
+        Ok(rmp_serde::from_read(self.lookup_bytes(hash.code)?.as_slice())?)
     }
 }
 
@@ -35,9 +36,9 @@ impl MapHashLookup {
 }
 
 impl HashLookup for MapHashLookup {
-    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, String> {
+    fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, anyhow::Error> {
         match self.map.get(&hash) {
-            None => Err("not found".to_string()),
+            None => bail!("not found"),
             Some(x) => Ok(x.clone()),
         }
     }
