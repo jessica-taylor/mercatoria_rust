@@ -224,3 +224,30 @@ pub fn miner_and_signers_by_prev_block<HL : HashLookup>(
     }
     Ok((miner, signers))
 }
+
+/// Selects quorums for a given path, given the block before the block of
+/// the relevant quorum tree.
+pub fn quorums_by_prev_block<HL : HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+    path: HexPath
+) -> Result<Vec<(Vec<HashCode>, u32)>, String> {
+    let sizes_thresholds = hl.lookup(main.options)?.quorum_sizes_thresholds;
+    let period = hl.lookup(main.options)?.quorum_period;
+    let mut base_version = main.version / u64::from(period) * u64::from(period);
+    if base_version > 0 {
+        base_version = base_version - u64::from(period);
+    }
+    let rand_acct_main = block_with_version(hl, main, base_version)?;
+    let seed = random_seed_of_block(hl, &rand_acct_main)?;
+    let mut quorums = Vec::new();
+    for i in 0..sizes_thresholds.len() {
+        let (size, threshold) = sizes_thresholds[i];
+        let mut members = Vec::new();
+        for j in 0..size {
+            members.push(random_account(hl, &rand_acct_main, seed, format!("quorum {:?} {} {}", path, i, j))?);
+        }
+        quorums.push((members, threshold));
+    }
+    Ok(quorums)
+}
