@@ -16,7 +16,7 @@ fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
 }
 
 fn data_node_well_formed(dn: &DataNode) -> bool {
-    children_paths_well_formed(&dn.children) && !(dn.children.len() <= 1 && dn.value.is_none())
+    children_paths_well_formed(&dn.children) && !(dn.children.len() <= 1 && dn.field.is_none())
 }
 
 struct TreeInfo {
@@ -83,34 +83,34 @@ fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<
 
 fn data_node_insert_child<HL : HashLookup + HashPut>(hl: &mut HL, child: (HexPath, Hash<DataNode>), tree: DataNode) -> Result<Hash<DataNode>, anyhow::Error> {
     let new_children = insert_child(child, tree.children);
-    Ok(hl.put(&DataNode {value: tree.value, children: new_children}))
+    Ok(hl.put(&DataNode {field: tree.field, children: new_children}))
 }
 
-fn modify_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
+fn insert_into_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
     let tree = hl.lookup(hash_tree)?;
     if path.len() == 0 {
-        // just replace the value
-        return Ok(hl.put(&DataNode {value: Some(field), children: tree.children}));
+        // just replace the field
+        return Ok(hl.put(&DataNode {field: Some(field), children: tree.children}));
     } else {
         for (suffix, child_hash) in tree.children.clone() {
             if suffix[0] == path[0] {
                 if is_prefix(&suffix, &path) {
                     // modify the child
-                    let new_child_hash = modify_data_tree(hl, path[suffix.len()..].to_vec(), field, child_hash)?;
+                    let new_child_hash = insert_into_data_tree(hl, path[suffix.len()..].to_vec(), field, child_hash)?;
                     return data_node_insert_child(hl, (suffix, new_child_hash), tree);
                 } else {
                     // create an intermediate node
                     let pref_len = longest_prefix_length(&path, &suffix);
-                    let mut new_child_hash = hl.put(&DataNode {value: None, children: vec![(suffix[pref_len..].to_vec(), child_hash)]});
+                    let mut new_child_hash = hl.put(&DataNode {field: None, children: vec![(suffix[pref_len..].to_vec(), child_hash)]});
                     // modify the intermediate node
-                    new_child_hash = modify_data_tree(hl, path[pref_len..].to_vec(), fild, new_child_hash)?;
+                    new_child_hash = insert_into_data_tree(hl, path[pref_len..].to_vec(), field, new_child_hash)?;
                     return data_node_insert_child(hl, (path[0..pref_len].to_vec(), new_child_hash), tree);
 
                 }
             }
         }
         // insert a new child that itself has no children
-        let node_hash = hl.put(&DataNode {value: Some(field), children: vec![]});
+        let node_hash = hl.put(&DataNode {field: Some(field), children: vec![]});
         return data_node_insert_child(hl, (path, node_hash), tree);
     }
 }

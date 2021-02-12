@@ -125,7 +125,7 @@ pub fn lookup_data_in_account<HL: HashLookup>(
     if postfix.len() != 0 {
         return Ok(None);
     }
-    Ok(dn.value)
+    Ok(dn.field)
 }
 
 /// Finds a block with a given version starting from the given block

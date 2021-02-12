@@ -62,7 +62,7 @@ pub struct QuorumNode {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DataNode {
-    pub value: Option<Vec<u8>>,
+    pub field: Option<Vec<u8>>,
     pub children: Vec<(HexPath, Hash<DataNode>)>,
 }
 
