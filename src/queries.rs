@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
@@ -17,6 +19,16 @@ pub fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
         }
     }
     true
+}
+
+/// What is the length of the longest common prefix between two vectors?
+pub fn longest_prefix_length<T: Eq>(xs: &Vec<T>, ys: &Vec<T>) -> usize {
+    for i in 0..min(xs.len(), ys.len()) {
+        if xs[i] != ys[i] {
+            return i;
+        }
+    }
+    min(xs.len(), ys.len())
 }
 
 /// Follows a path in a radix hash tree.

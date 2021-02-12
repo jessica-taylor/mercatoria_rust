@@ -1,8 +1,8 @@
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
-use crate::hashlookup::HashLookup;
+use crate::hashlookup::{HashLookup, HashPut};
 use crate::hex_path::{bytes_to_path, HexPath};
-use crate::queries::is_prefix;
+use crate::queries::{is_prefix, longest_prefix_length};
 
 
 fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
@@ -79,4 +79,30 @@ fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<
     }
     children.push(child);
     children
+}
+
+fn modify_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
+    let tree = hl.lookup(hash_tree)?;
+    if path.len() == 0 {
+        return Ok(hl.put(&DataNode {value: Some(field), children: tree.children}));
+    } else {
+        for (suffix, child_hash) in tree.children.clone() {
+            if suffix[0] == path[0] {
+                if is_prefix(&suffix, &path) {
+                    let new_child_hash = modify_data_tree(hl, path[suffix.len()..].to_vec(), field, child_hash)?;
+                    let new_children = insert_child((suffix, new_child_hash), tree.children);
+                    return Ok(hl.put(&DataNode {value: tree.value, children: new_children}));
+                } else {
+                    let pref_len = longest_prefix_length(&path, &suffix);
+                    let new_child_hash = hl.put(&DataNode {value: None, children: vec![(suffix[pref_len..].to_vec(), child_hash)]});
+                    let new_children = insert_child((path[0..pref_len].to_vec(), new_child_hash), tree.children);
+                    return Ok(hl.put(&DataNode {value: tree.value, children: new_children}));
+
+                }
+            }
+        }
+        let node_hash = hl.put(&DataNode {value: Some(field), children: vec![]});
+        let new_children = insert_child((path, node_hash), tree.children);
+        return Ok(hl.put(&DataNode {value: tree.value, children: new_children}));
+    }
 }
