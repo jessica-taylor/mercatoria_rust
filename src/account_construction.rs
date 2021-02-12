@@ -81,6 +81,11 @@ fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<
     children
 }
 
+fn data_node_insert_child<HL : HashLookup + HashPut>(hl: &mut HL, child: (HexPath, Hash<DataNode>), tree: DataNode) -> Result<Hash<DataNode>, anyhow::Error> {
+    let new_children = insert_child(child, tree.children);
+    Ok(hl.put(&DataNode {value: tree.value, children: new_children}))
+}
+
 fn modify_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
     let tree = hl.lookup(hash_tree)?;
     if path.len() == 0 {
@@ -90,19 +95,16 @@ fn modify_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field
             if suffix[0] == path[0] {
                 if is_prefix(&suffix, &path) {
                     let new_child_hash = modify_data_tree(hl, path[suffix.len()..].to_vec(), field, child_hash)?;
-                    let new_children = insert_child((suffix, new_child_hash), tree.children);
-                    return Ok(hl.put(&DataNode {value: tree.value, children: new_children}));
+                    return data_node_insert_child(hl, (suffix, new_child_hash), tree);
                 } else {
                     let pref_len = longest_prefix_length(&path, &suffix);
                     let new_child_hash = hl.put(&DataNode {value: None, children: vec![(suffix[pref_len..].to_vec(), child_hash)]});
-                    let new_children = insert_child((path[0..pref_len].to_vec(), new_child_hash), tree.children);
-                    return Ok(hl.put(&DataNode {value: tree.value, children: new_children}));
+                    return data_node_insert_child(hl, (path[0..pref_len].to_vec(), new_child_hash), tree);
 
                 }
             }
         }
         let node_hash = hl.put(&DataNode {value: Some(field), children: vec![]});
-        let new_children = insert_child((path, node_hash), tree.children);
-        return Ok(hl.put(&DataNode {value: tree.value, children: new_children}));
+        return data_node_insert_child(hl, (path, node_hash), tree);
     }
 }
