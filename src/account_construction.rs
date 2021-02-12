@@ -65,3 +65,18 @@ impl TreeInfo {
         }
     }
 }
+
+fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<(HexPath, N)> {
+    for i in 0..children.len() {
+        if children[i].0[0] >= child.0[0] {
+            if children[i].0[0] == child.0[0] {
+                children[i] = child;
+            } else {
+                children.insert(i, child);
+            }
+            return children;
+        }
+    }
+    children.push(child);
+    children
+}
