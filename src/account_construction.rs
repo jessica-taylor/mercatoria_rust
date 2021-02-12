@@ -5,6 +5,7 @@ use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{is_prefix, longest_prefix_length};
 
 
+/// Checks whether a radix hash node's children are well-formed.
 fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
     for i in 0..children.len() {
         let (path, _) = &children[i];
@@ -15,20 +16,25 @@ fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
     true
 }
 
+/// Checks whether a data node is well-formed.
 fn data_node_well_formed(dn: &DataNode) -> bool {
     children_paths_well_formed(&dn.children) && !(dn.children.len() <= 1 && dn.field.is_none())
 }
 
-struct TreeInfo {
-    fee: u128,
-    gas: u128,
-    new_nodes: u64,
-    prize: u128,
-    stake: u128,
-    new_transactions: u64,
-    new_quorums: u64
+/// Summary statistics about a `QuorumNode`, summing all data at or below the
+/// node.
+pub struct TreeInfo {
+    pub fee: u128,
+    pub gas: u128,
+    pub new_nodes: u64,
+    pub prize: u128,
+    pub stake: u128,
+    pub new_transactions: u64,
+    pub new_quorums: u64
 }
 
+/// Gets `TreeInfo` cached in a `QuorumNodeBody`; `new_transactions` and `new_quorums'
+/// are set to 0.
 fn cached_tree_info(qnb: &QuorumNodeBody) -> TreeInfo {
     TreeInfo {
         fee: qnb.total_fee,
@@ -42,6 +48,7 @@ fn cached_tree_info(qnb: &QuorumNodeBody) -> TreeInfo {
 }
 
 impl TreeInfo {
+    /// `TreeInfo` with all fields set to 0.
     fn zero() -> TreeInfo {
         TreeInfo {
             fee: 0,
@@ -53,6 +60,8 @@ impl TreeInfo {
             new_quorums: 0
         }
     }
+
+    /// Adds fields in two `TreeInfo`s.
     fn plus(self: &TreeInfo, other: &TreeInfo) -> TreeInfo {
         TreeInfo {
             fee: self.fee + other.fee,
@@ -66,6 +75,8 @@ impl TreeInfo {
     }
 }
 
+/// Inserts a child into a list of radix hash children, replacing a child
+/// with the same first character if one exists.
 fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<(HexPath, N)> {
     for i in 0..children.len() {
         if children[i].0[0] >= child.0[0] {
@@ -81,11 +92,13 @@ fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<
     children
 }
 
+/// Modifies a `DataNode` to insert a new child.
 fn data_node_insert_child<HL : HashLookup + HashPut>(hl: &mut HL, child: (HexPath, Hash<DataNode>), tree: DataNode) -> Result<Hash<DataNode>, anyhow::Error> {
     let new_children = insert_child(child, tree.children);
     Ok(hl.put(&DataNode {field: tree.field, children: new_children}))
 }
 
+/// Inserts a field at a given path in a data tree.
 fn insert_into_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
     let tree = hl.lookup(hash_tree)?;
     if path.len() == 0 {
