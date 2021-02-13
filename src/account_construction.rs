@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
-use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody};
+
+use anyhow::anyhow;
+
+use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, Action};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
 use crate::hex_path::{bytes_to_path, HexPath};
-use crate::queries::{is_prefix, longest_prefix_length};
-use crate::account_transform::{field_balance, field_stake, field_public_key};
+use crate::queries::{is_prefix, longest_prefix_length, lookup_account};
+use crate::account_transform::{field_balance, field_stake, field_public_key, run_action, AccountTransform};
 
 
 /// Checks whether a radix hash node's children are well-formed.
@@ -167,5 +170,38 @@ fn initialize_account_node<HL : HashLookup + HashPut>(
         total_prize: 0
     };
     Ok((fields, node))
+}
 
+/// Causes a given account to run a given action, producing a new account `QuorumNodeBody`.
+fn add_action_to_account<HL : HashLookup + HashPut>(
+    hl: &mut HL,
+    last_main: &MainBlock,
+    account: HashCode,
+    action: &Action,
+    prize: u128,
+) -> Result<QuorumNodeBody, anyhow::Error> {
+    let (is_init, mut data_tree) = match lookup_account(hl, &last_main.block.body, account)? {
+        None => (true, hl.put(&DataNode {field: None, children: vec![]})),
+        Some(prev_node) => (false, prev_node.body.data_tree.ok_or(anyhow!("account has no data tree"))?)
+    };
+    let mut at = AccountTransform::new(hl, is_init, account, hash(&last_main));
+    run_action(&mut at, action)?;
+    let new_stake = at.get_data_field_or_error(account, &field_stake())?;
+    let mut node_count = 0;
+    for (path, value) in at.fields_set {
+        data_tree = insert_into_data_tree(hl, &mut node_count, path, value, data_tree)?;
+    }
+    Ok(QuorumNodeBody {
+        last_main: Some(hash(last_main)),
+        path: bytes_to_path(&account),
+        children: vec![],
+        data_tree: Some(data_tree),
+        prize: prize,
+        new_action: Some(hl.put(action)),
+        new_nodes: (node_count as u64) + 1, // node_count data nodes + 1 quorum node
+        total_fee: action.fee,
+        total_gas: 0,
+        total_stake: new_stake,
+        total_prize: prize
+    })
 }

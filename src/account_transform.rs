@@ -87,7 +87,7 @@ impl<'a, HL : HashLookup> HashLookup for AccountTransform<'a, HL> {
 impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
 
     /// Creates a new `AccountTransform`.
-    fn new(hl: &'a HL, is_initializing: bool, this_account: HashCode, last_main: Hash<MainBlock>) -> AccountTransform<'a, HL> {
+    pub fn new(hl: &'a HL, is_initializing: bool, this_account: HashCode, last_main: Hash<MainBlock>) -> AccountTransform<'a, HL> {
         AccountTransform {
             hl, is_initializing, this_account, last_main,
             fields_set: BTreeMap::new()
@@ -95,7 +95,7 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
     }
 
     /// Gets the value of a given data field.
-    fn get_data_field_bytes(&self, acct: HashCode, field_name: &HexPath) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    pub fn get_data_field_bytes(&self, acct: HashCode, field_name: &HexPath) -> Result<Option<Vec<u8>>, anyhow::Error> {
         if acct == self.this_account {
             match self.fields_set.get(field_name) {
                 Some(x) => {
@@ -105,18 +105,20 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
             }
         }
         let main = self.lookup(self.last_main)?;
-        let acct_node = lookup_account(self, &main.block.body, self.this_account)?;
-        lookup_data_in_account(self, &acct_node, field_name)
+        match lookup_account(self, &main.block.body, self.this_account)? {
+            None => Ok(None),
+            Some(acct_node) => lookup_data_in_account(self, &acct_node, field_name)
+        }
     }
 
     /// Sets the value of a given data field.
-    fn set_data_field_bytes(&mut self, field_name: &HexPath, value: Vec<u8>) -> Result<(), anyhow::Error> {
+    pub fn set_data_field_bytes(&mut self, field_name: &HexPath, value: Vec<u8>) -> Result<(), anyhow::Error> {
         self.fields_set.insert(field_name.clone(), value);
         Ok(())
     }
 
     /// Gets the value of a given typed data field.
-    fn get_data_field<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<Option<T>, anyhow::Error> {
+    pub fn get_data_field<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<Option<T>, anyhow::Error> {
         match self.get_data_field_bytes(acct, &field.path)? {
             None => Ok(None),
             Some(bs) => Ok(Some(rmp_serde::from_read(bs.as_slice())?))
@@ -124,7 +126,7 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
     }
 
     /// Gets the value of a given typed data field, throwing an error if it is not found.
-    fn get_data_field_or_error<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<T, anyhow::Error> {
+    pub fn get_data_field_or_error<T : DeserializeOwned>(&self, acct: HashCode, field: &TypedDataField<T>) -> Result<T, anyhow::Error> {
         match self.get_data_field(acct, field)? {
             None => bail!("data field not found: {:?}", field.path),
             Some(x) => Ok(x)
@@ -132,7 +134,7 @@ impl<'a, HL : HashLookup> AccountTransform<'a, HL> {
     }
 
     /// Sets the value of a given typed data field.
-    fn set_data_field<T : Serialize>(&mut self, field: &TypedDataField<T>, value: &T) -> Result<(), anyhow::Error> {
+    pub fn set_data_field<T : Serialize>(&mut self, field: &TypedDataField<T>, value: &T) -> Result<(), anyhow::Error> {
         self.set_data_field_bytes(&field.path, rmp_serde::to_vec_named(value).unwrap())
     }
 }
