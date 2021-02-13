@@ -11,7 +11,7 @@ use crate::account_transform::{field_balance, field_stake, field_public_key, run
 
 
 /// Checks whether a radix hash node's children are well-formed.
-fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
+pub fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
     for i in 0..children.len() {
         let (path, _) = &children[i];
         if path.len() == 0 || (i > 0 && path[0] <= children[i-1].0[0]) {
