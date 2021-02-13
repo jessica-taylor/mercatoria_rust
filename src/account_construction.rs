@@ -1,8 +1,10 @@
+use std::collections::BTreeMap;
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{is_prefix, longest_prefix_length};
+use crate::account_transform::{field_balance, field_stake, field_public_key};
 
 
 /// Checks whether a radix hash node's children are well-formed.
@@ -93,37 +95,77 @@ fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<
 }
 
 /// Modifies a `DataNode` to insert a new child.
-fn data_node_insert_child<HL : HashLookup + HashPut>(hl: &mut HL, child: (HexPath, Hash<DataNode>), tree: DataNode) -> Result<Hash<DataNode>, anyhow::Error> {
+fn data_node_insert_child<HL : HashLookup + HashPut>(hl: &mut HL, node_count: &mut usize, child: (HexPath, Hash<DataNode>), tree: DataNode) -> Result<Hash<DataNode>, anyhow::Error> {
     let new_children = insert_child(child, tree.children);
+    *node_count += 1;
     Ok(hl.put(&DataNode {field: tree.field, children: new_children}))
 }
 
 /// Inserts a field at a given path in a data tree.
-fn insert_into_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
+fn insert_into_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, node_count: &mut usize, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
     let tree = hl.lookup(hash_tree)?;
     if path.len() == 0 {
         // just replace the field
+        *node_count += 1;
         return Ok(hl.put(&DataNode {field: Some(field), children: tree.children}));
     } else {
         for (suffix, child_hash) in tree.children.clone() {
             if suffix[0] == path[0] {
                 if is_prefix(&suffix, &path) {
                     // modify the child
-                    let new_child_hash = insert_into_data_tree(hl, path[suffix.len()..].to_vec(), field, child_hash)?;
-                    return data_node_insert_child(hl, (suffix, new_child_hash), tree);
+                    let new_child_hash = insert_into_data_tree(hl, node_count, path[suffix.len()..].to_vec(), field, child_hash)?;
+                    return data_node_insert_child(hl, node_count, (suffix, new_child_hash), tree);
                 } else {
                     // create an intermediate node
                     let pref_len = longest_prefix_length(&path, &suffix);
+                    *node_count += 1;
                     let mut new_child_hash = hl.put(&DataNode {field: None, children: vec![(suffix[pref_len..].to_vec(), child_hash)]});
                     // modify the intermediate node
-                    new_child_hash = insert_into_data_tree(hl, path[pref_len..].to_vec(), field, new_child_hash)?;
-                    return data_node_insert_child(hl, (path[0..pref_len].to_vec(), new_child_hash), tree);
+                    new_child_hash = insert_into_data_tree(hl, node_count, path[pref_len..].to_vec(), field, new_child_hash)?;
+                    return data_node_insert_child(hl, node_count, (path[0..pref_len].to_vec(), new_child_hash), tree);
 
                 }
             }
         }
         // insert a new child that itself has no children
+        *node_count += 1;
         let node_hash = hl.put(&DataNode {field: Some(field), children: vec![]});
-        return data_node_insert_child(hl, (path, node_hash), tree);
+        return data_node_insert_child(hl, node_count, (path, node_hash), tree);
     }
+}
+
+/// Initializes an account node.  The resulting node is only valid in the genesis
+/// block.
+fn initialize_account_node<HL : HashLookup + HashPut>(
+    hl: &mut HL,
+    last_main: Option<Hash<MainBlock>>,
+    key: ed25519_dalek::PublicKey,
+    balance: u128,
+    stake: u128
+) -> Result<(BTreeMap<HexPath, Vec<u8>>, QuorumNodeBody), anyhow::Error> {
+    let acct = hash(&key).code;
+    let mut fields = BTreeMap::new();
+    fields.insert(field_balance().path, rmp_serde::to_vec_named(&balance).unwrap());
+    fields.insert(field_stake().path, rmp_serde::to_vec_named(&stake).unwrap());
+    fields.insert(field_public_key().path, rmp_serde::to_vec_named(&key).unwrap());
+    let mut data_tree: Hash<DataNode> = hl.put(&DataNode {field: None, children: vec![]});
+    let mut node_count = 1;
+    for (path, value) in fields.clone() {
+        data_tree = insert_into_data_tree(hl, &mut node_count, path, value, data_tree)?;
+    }
+    let node = QuorumNodeBody {
+        last_main: last_main,
+        path: bytes_to_path(&acct),
+        children: vec![],
+        data_tree: Some(data_tree),
+        new_action: None,
+        prize: 0,
+        new_nodes: node_count as u64,
+        total_fee: 0,
+        total_gas: 0,
+        total_stake: stake,
+        total_prize: 0
+    };
+    Ok((fields, node))
+
 }
