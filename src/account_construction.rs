@@ -139,7 +139,7 @@ fn insert_into_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, node_count: &mu
 
 /// Initializes an account node.  The resulting node is only valid in the genesis
 /// block.
-fn initialize_account_node<HL : HashLookup + HashPut>(
+pub fn initialize_account_node<HL : HashLookup + HashPut>(
     hl: &mut HL,
     last_main: Option<Hash<MainBlock>>,
     key: ed25519_dalek::PublicKey,
@@ -173,7 +173,7 @@ fn initialize_account_node<HL : HashLookup + HashPut>(
 }
 
 /// Causes a given account to run a given action, producing a new account `QuorumNodeBody`.
-fn add_action_to_account<HL : HashLookup + HashPut>(
+pub fn add_action_to_account<HL : HashLookup + HashPut>(
     hl: &mut HL,
     last_main: &MainBlock,
     account: HashCode,
