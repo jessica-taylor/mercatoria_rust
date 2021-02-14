@@ -32,7 +32,7 @@ impl<T> Clone for TypedDataField<T> {
 
 impl<T> TypedDataField<T> {
     /// Creates a `TypedDataField` given a path.
-    fn from_path(path: HexPath) -> TypedDataField<T> {
+    pub fn from_path(path: HexPath) -> TypedDataField<T> {
         TypedDataField {
             path: path,
             phantom: PhantomData,
@@ -89,7 +89,7 @@ impl<'a, HL: HashLookup> HashLookup for AccountTransform<'a, HL> {
 
 impl<'a, HL: HashLookup> AccountTransform<'a, HL> {
     /// Creates a new `AccountTransform`.
-    fn new(
+    pub fn new(
         hl: &'a HL,
         is_initializing: bool,
         this_account: HashCode,
@@ -119,8 +119,11 @@ impl<'a, HL: HashLookup> AccountTransform<'a, HL> {
             }
         }
         let main = self.lookup(self.last_main).await?;
-        let acct_node = lookup_account(self, &main.block.body, self.this_account).await?;
-        lookup_data_in_account(self, &acct_node, field_name).await
+        if let Some(acct_node) = lookup_account(self, &main.block.body, self.this_account).await? {
+            lookup_data_in_account(self, &acct_node, field_name).await
+        } else {
+            Ok(None)
+        }
     }
 
     /// Sets the value of a given data field.
@@ -146,7 +149,7 @@ impl<'a, HL: HashLookup> AccountTransform<'a, HL> {
     }
 
     /// Gets the value of a given typed data field, throwing an error if it is not found.
-    async fn get_data_field_or_error<T: DeserializeOwned>(
+    pub async fn get_data_field_or_error<T: DeserializeOwned>(
         &self,
         acct: HashCode,
         field: &TypedDataField<T>,

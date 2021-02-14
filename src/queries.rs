@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode};
+use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
@@ -41,7 +41,7 @@ pub async fn rh_follow_path<
     get_children: GC,
     init_node: N,
     path: &HexPath,
-) -> Result<(N, HexPath), anyhow::Error> {
+) -> Result<Option<(N, HexPath)>, anyhow::Error> {
     let mut path_ix = 0;
     let mut prefix = HexPath::new();
     let mut node = init_node;
@@ -63,7 +63,7 @@ pub async fn rh_follow_path<
             bail!("RH node not found");
         }
     }
-    Ok((node, prefix))
+    Ok(Some((node, prefix)))
 }
 
 /// Follows a path starting from a `QuorumNode` going down.  Returns a node
@@ -73,7 +73,7 @@ pub async fn quorum_node_follow_path<HL: HashLookup>(
     hl: &HL,
     node: &QuorumNode,
     path: &HexPath,
-) -> Result<(QuorumNode, HexPath), anyhow::Error> {
+) -> Result<Option<(QuorumNode, HexPath)>, anyhow::Error> {
     rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path).await
 }
 
@@ -82,7 +82,7 @@ pub async fn lookup_quorum_node<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
     path: &HexPath,
-) -> Result<(QuorumNode, HexPath), anyhow::Error> {
+) -> Result<Option<(QuorumNode, HexPath)>, anyhow::Error> {
     quorum_node_follow_path(hl, &hl.lookup(main.tree).await?, path).await
 }
 
@@ -91,12 +91,17 @@ pub async fn lookup_account<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
     acct: HashCode,
-) -> Result<QuorumNode, anyhow::Error> {
-    let (qn, postfix) = lookup_quorum_node(hl, main, &bytes_to_path(&acct)).await?;
-    if postfix.len() != 0 {
-        bail!("account not found");
+) -> Result<Option<QuorumNode>, anyhow::Error> {
+    match lookup_quorum_node(hl, main, &bytes_to_path(&acct)).await? {
+        None => Ok(None),
+        Some((qn, postfix)) => {
+            if postfix.len() != 0 {
+                Ok(None)
+            } else {
+                Ok(Some(qn))
+            }
+        }
     }
-    Ok(qn)
 }
 
 /// Follows a path starting from a `DataNode` going down.  Returns a node
@@ -106,7 +111,7 @@ pub async fn data_node_follow_path<HL: HashLookup>(
     hl: &HL,
     node: &DataNode,
     path: &HexPath,
-) -> Result<(DataNode, HexPath), anyhow::Error> {
+) -> Result<Option<(DataNode, HexPath)>, anyhow::Error> {
     rh_follow_path(hl, |dn| &dn.children, node.clone(), path).await
 }
 
@@ -119,11 +124,16 @@ pub async fn lookup_data_in_account<HL: HashLookup>(
     let top_dn = hl
         .lookup(qn.body.data_tree.ok_or(anyhow!("no data tree"))?)
         .await?;
-    let (dn, postfix) = data_node_follow_path(hl, &top_dn, path).await?;
-    if postfix.len() != 0 {
-        return Ok(None);
+    match data_node_follow_path(hl, &top_dn, path).await? {
+        None => Ok(None),
+        Some((dn, postfix)) => {
+            if postfix.len() != 0 {
+                Ok(None)
+            } else {
+                Ok(dn.field)
+            }
+        }
     }
-    Ok(dn.field)
 }
 
 /// Finds a block with a given version starting from the given block

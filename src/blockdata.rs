@@ -3,7 +3,7 @@ use crate::hex_path::HexPath;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlockBody {
     pub prev: Option<Hash<MainBlock>>,
     pub version: u64,
@@ -14,7 +14,7 @@ pub struct MainBlockBody {
     // miner slashes
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainOptions {
     pub gas_cost: u128,
     pub gas_limit: u128,
@@ -27,19 +27,19 @@ pub struct MainOptions {
     pub quorum_sizes_thresholds: Vec<(u32, u32)>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct PreSignedMainBlock {
     pub body: MainBlockBody,
     pub signatures: Vec<Signature<MainBlockBody>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlock {
     pub block: PreSignedMainBlock,
     pub signature: Signature<PreSignedMainBlock>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNodeBody {
     pub last_main: Option<Hash<MainBlock>>,
     pub path: HexPath,
@@ -54,19 +54,19 @@ pub struct QuorumNodeBody {
     pub total_stake: u128,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNode {
     pub body: QuorumNodeBody,
     pub signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct DataNode {
     pub field: Option<Vec<u8>>,
     pub children: Vec<(HexPath, Hash<DataNode>)>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct Action {
     pub last_main: Hash<MainBlock>,
     pub fee: u128,
@@ -74,7 +74,7 @@ pub struct Action {
     pub args: Vec<Vec<u8>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct SendInfo {
     pub last_main: Hash<MainBlock>,
     pub sender: HashCode,
