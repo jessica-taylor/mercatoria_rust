@@ -109,5 +109,7 @@ pub fn sign<T: Serialize>(key: &Keypair, msg: T) -> Signature<T> {
 
 /// Verifies that a given signature of a given serializable value is valid.
 pub fn verify_sig<T: Serialize>(msg: &T, sig: &Signature<T>) -> bool {
-    sig.key.verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig).is_ok()
+    sig.key
+        .verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig)
+        .is_ok()
 }
