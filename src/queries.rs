@@ -184,7 +184,7 @@ async fn stake_indexed_account<HL: HashLookup>(
     qn: &QuorumNode,
     mut stake_ix: u128,
 ) -> Result<HashCode, anyhow::Error> {
-    loop {
+    'outer: loop {
         if stake_ix >= qn.body.total_stake {
             bail!("index exceeds total stake");
         }
@@ -201,7 +201,7 @@ async fn stake_indexed_account<HL: HashLookup>(
         for i in 0..children.len() {
             if stake_ix < sum_so_far + child_stakes[i] {
                 stake_ix -= sum_so_far;
-                continue;
+                continue 'outer;
             }
             sum_so_far += child_stakes[i];
         }
