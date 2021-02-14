@@ -1,15 +1,20 @@
-use crate::blockdata::{DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody};
+use std::{future::Future, pin::Pin};
+
+use futures_lite::{future, FutureExt};
+
+use crate::blockdata::{
+    DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
+};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{is_prefix, longest_prefix_length};
 
-
 /// Checks whether a radix hash node's children are well-formed.
 fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
     for i in 0..children.len() {
         let (path, _) = &children[i];
-        if path.len() == 0 || (i > 0 && path[0] <= children[i-1].0[0]) {
+        if path.len() == 0 || (i > 0 && path[0] <= children[i - 1].0[0]) {
             return false;
         }
     }
@@ -30,7 +35,7 @@ pub struct TreeInfo {
     pub prize: u128,
     pub stake: u128,
     pub new_transactions: u64,
-    pub new_quorums: u64
+    pub new_quorums: u64,
 }
 
 /// Gets `TreeInfo` cached in a `QuorumNodeBody`; `new_transactions` and `new_quorums'
@@ -43,7 +48,7 @@ fn cached_tree_info(qnb: &QuorumNodeBody) -> TreeInfo {
         prize: qnb.total_prize,
         stake: qnb.total_stake,
         new_transactions: 0,
-        new_quorums: 0
+        new_quorums: 0,
     }
 }
 
@@ -57,7 +62,7 @@ impl TreeInfo {
             prize: 0,
             stake: 0,
             new_transactions: 0,
-            new_quorums: 0
+            new_quorums: 0,
         }
     }
 
@@ -70,7 +75,7 @@ impl TreeInfo {
             prize: self.prize + other.prize,
             stake: self.stake + other.stake,
             new_transactions: self.new_transactions + other.new_transactions,
-            new_quorums: self.new_quorums + other.new_quorums
+            new_quorums: self.new_quorums + other.new_quorums,
         }
     }
 }
@@ -93,37 +98,84 @@ fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<
 }
 
 /// Modifies a `DataNode` to insert a new child.
-fn data_node_insert_child<HL : HashLookup + HashPut>(hl: &mut HL, child: (HexPath, Hash<DataNode>), tree: DataNode) -> Result<Hash<DataNode>, anyhow::Error> {
+async fn data_node_insert_child<HL: HashLookup + HashPut>(
+    hl: &mut HL,
+    child: (HexPath, Hash<DataNode>),
+    tree: DataNode,
+) -> Result<Hash<DataNode>, anyhow::Error> {
     let new_children = insert_child(child, tree.children);
-    Ok(hl.put(&DataNode {field: tree.field, children: new_children}))
+    hl.put(&DataNode {
+        field: tree.field,
+        children: new_children,
+    })
+    .await
 }
 
 /// Inserts a field at a given path in a data tree.
-fn insert_into_data_tree<HL : HashLookup + HashPut>(hl: &mut HL, path: HexPath, field: Vec<u8>, hash_tree: Hash<DataNode>) -> Result<Hash<DataNode>, anyhow::Error> {
-    let tree = hl.lookup(hash_tree)?;
-    if path.len() == 0 {
-        // just replace the field
-        return Ok(hl.put(&DataNode {field: Some(field), children: tree.children}));
-    } else {
-        for (suffix, child_hash) in tree.children.clone() {
-            if suffix[0] == path[0] {
-                if is_prefix(&suffix, &path) {
-                    // modify the child
-                    let new_child_hash = insert_into_data_tree(hl, path[suffix.len()..].to_vec(), field, child_hash)?;
-                    return data_node_insert_child(hl, (suffix, new_child_hash), tree);
-                } else {
-                    // create an intermediate node
-                    let pref_len = longest_prefix_length(&path, &suffix);
-                    let mut new_child_hash = hl.put(&DataNode {field: None, children: vec![(suffix[pref_len..].to_vec(), child_hash)]});
-                    // modify the intermediate node
-                    new_child_hash = insert_into_data_tree(hl, path[pref_len..].to_vec(), field, new_child_hash)?;
-                    return data_node_insert_child(hl, (path[0..pref_len].to_vec(), new_child_hash), tree);
-
+fn insert_into_data_tree<HL: HashLookup + HashPut>(
+    hl: &mut HL,
+    path: HexPath,
+    field: Vec<u8>,
+    hash_tree: Hash<DataNode>,
+) -> Pin<Box<dyn Future<Output = Result<Hash<DataNode>, anyhow::Error>> + Send + '_>> {
+    async move {
+        let tree = hl.lookup(hash_tree).await?;
+        if path.len() == 0 {
+            // just replace the field
+            return hl
+                .put(&DataNode {
+                    field: Some(field),
+                    children: tree.children,
+                })
+                .await;
+        } else {
+            for (suffix, child_hash) in tree.children.clone() {
+                if suffix[0] == path[0] {
+                    if is_prefix(&suffix, &path) {
+                        // modify the child
+                        let new_child_hash = insert_into_data_tree(
+                            hl,
+                            path[suffix.len()..].to_vec(),
+                            field,
+                            child_hash,
+                        )
+                        .await?;
+                        return data_node_insert_child(hl, (suffix, new_child_hash), tree).await;
+                    } else {
+                        // create an intermediate node
+                        let pref_len = longest_prefix_length(&path, &suffix);
+                        let mut new_child_hash = hl
+                            .put(&DataNode {
+                                field: None,
+                                children: vec![(suffix[pref_len..].to_vec(), child_hash)],
+                            })
+                            .await?;
+                        // modify the intermediate node
+                        new_child_hash = insert_into_data_tree(
+                            hl,
+                            path[pref_len..].to_vec(),
+                            field,
+                            new_child_hash,
+                        )
+                        .await?;
+                        return data_node_insert_child(
+                            hl,
+                            (path[0..pref_len].to_vec(), new_child_hash),
+                            tree,
+                        )
+                        .await;
+                    }
                 }
             }
+            // insert a new child that itself has no children
+            let node_hash = hl
+                .put(&DataNode {
+                    field: Some(field),
+                    children: vec![],
+                })
+                .await?;
+            return data_node_insert_child(hl, (path, node_hash), tree).await;
         }
-        // insert a new child that itself has no children
-        let node_hash = hl.put(&DataNode {field: Some(field), children: vec![]});
-        return data_node_insert_child(hl, (path, node_hash), tree);
     }
+    .boxed()
 }
