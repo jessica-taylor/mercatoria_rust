@@ -93,7 +93,9 @@ async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
     Ok(())
 }
 
-async fn verify_endorsed_quorum_node<HL: HashLookup>(
+/// Verifies that a quorum node is endorsed (i.e. either has enough
+/// signatures or has no signatures but is valid).
+pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
     node: &QuorumNode
