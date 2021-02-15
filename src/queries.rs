@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode};
+use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
@@ -34,11 +34,9 @@ pub fn longest_prefix_length<T: Eq>(xs: &Vec<T>, ys: &Vec<T>) -> usize {
 /// Follows a path in a radix hash tree.
 pub async fn rh_follow_path<
     HL: HashLookup,
-    N: DeserializeOwned + Clone + Send,
-    GC: Fn(&N) -> &Vec<(HexPath, Hash<N>)>,
+    N: RadixHashNode,
 >(
     hl: &HL,
-    get_children: GC,
     init_node: N,
     path: &HexPath,
 ) -> Result<Option<(N, HexPath)>, anyhow::Error> {
@@ -49,7 +47,7 @@ pub async fn rh_follow_path<
         prefix.push(path[path_ix]);
         path_ix += 1;
         let mut found = false;
-        for (postfix, child_hash) in get_children(&node) {
+        for (postfix, child_hash) in node.get_children() {
             if is_prefix(&prefix, &postfix) {
                 found = true;
                 if prefix == *postfix {
@@ -74,7 +72,7 @@ pub async fn quorum_node_follow_path<HL: HashLookup>(
     node: &QuorumNode,
     path: &HexPath,
 ) -> Result<Option<(QuorumNode, HexPath)>, anyhow::Error> {
-    rh_follow_path(hl, |qn| &qn.body.children, node.clone(), path).await
+    rh_follow_path(hl, node.clone(), path).await
 }
 
 /// Looks up a quorum node in a given main block body.
@@ -112,7 +110,7 @@ pub async fn data_node_follow_path<HL: HashLookup>(
     node: &DataNode,
     path: &HexPath,
 ) -> Result<Option<(DataNode, HexPath)>, anyhow::Error> {
-    rh_follow_path(hl, |dn| &dn.children, node.clone(), path).await
+    rh_follow_path(hl, node.clone(), path).await
 }
 
 /// Looks up data given an account `QuorumNode`.

@@ -1,8 +1,15 @@
 use crate::crypto::{Hash, HashCode, Signature};
 use crate::hex_path::HexPath;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, de::DeserializeOwned, Serialize};
 
+/// A node in a radix hash tree.
+pub trait RadixHashNode: Sized + DeserializeOwned + Clone + Send {
+    /// Gets the children of the node.
+    fn get_children(&self) -> &Vec<(HexPath, Hash<Self>)>;
+}
+
+/// The body of a `MainBlock`.  It doesn't contain signatures.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlockBody {
     pub prev: Option<Hash<MainBlock>>,
@@ -14,6 +21,7 @@ pub struct MainBlockBody {
     // miner slashes
 }
 
+/// Options for the blockchain, stored in a `MainBlockBody`.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainOptions {
     pub gas_cost: u128,
@@ -27,24 +35,32 @@ pub struct MainOptions {
     pub quorum_sizes_thresholds: Vec<(u32, u32)>,
 }
 
+/// A `MainBlockBody` signed by signers.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct PreSignedMainBlock {
     pub body: MainBlockBody,
     pub signatures: Vec<Signature<MainBlockBody>>,
 }
 
+/// A `PreSignedMainBlock` signed by the miner.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlock {
     pub block: PreSignedMainBlock,
     pub signature: Signature<PreSignedMainBlock>,
 }
 
+/// Statistics for a quorum node.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNodeStats {
+    /// Total fee at or under this node, for this iteration.
     pub fee: u128,
+    /// Total gas at or under this node, for this iteration.
     pub gas: u128,
+    /// New nodes created at or under this node, for this iteration.
     pub new_nodes: u64,
+    /// Total prize at or under this node, for this iteration.
     pub prize: u128,
+    /// Total stake at or under this node.
     pub stake: u128,
 }
 
@@ -73,6 +89,7 @@ impl QuorumNodeStats {
     }
 }
 
+/// The body of a `QuorumNode`.  It does not contain signatures.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNodeBody {
     pub last_main: Option<Hash<MainBlock>>,
@@ -84,18 +101,33 @@ pub struct QuorumNodeBody {
     pub stats: QuorumNodeStats,
 }
 
+/// A `QuorumNodeBody` that may be signed.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNode {
     pub body: QuorumNodeBody,
     pub signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
 }
 
+impl RadixHashNode for QuorumNode {
+    fn get_children(&self) -> &Vec<(HexPath, Hash<QuorumNode>)> {
+        &self.body.children
+    }
+}
+
+/// A radix hash node containing account data.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct DataNode {
     pub field: Option<Vec<u8>>,
     pub children: Vec<(HexPath, Hash<DataNode>)>,
 }
 
+impl RadixHashNode for DataNode {
+    fn get_children(&self) -> &Vec<(HexPath, Hash<DataNode>)> {
+        &self.children
+    }
+}
+
+/// An action that may be run on an account.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct Action {
     pub last_main: Hash<MainBlock>,
@@ -104,6 +136,7 @@ pub struct Action {
     pub args: Vec<Vec<u8>>,
 }
 
+/// Information about a send transaction.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct SendInfo {
     pub last_main: Hash<MainBlock>,
