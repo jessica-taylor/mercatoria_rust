@@ -8,7 +8,7 @@ use crate::account_transform::{
     AccountTransform,
 };
 use crate::blockdata::{
-    Action, DataNode, MainBlock, QuorumNodeBody,
+    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats
 };
 use crate::crypto::{hash, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
@@ -31,52 +31,6 @@ fn data_node_well_formed(dn: &DataNode) -> bool {
     children_paths_well_formed(&dn.children) && !(dn.children.len() <= 1 && dn.field.is_none())
 }
 
-/// Summary statistics about a `QuorumNode`, summing all data at or below the
-/// node.
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub struct TreeInfo {
-    pub fee: u128,
-    pub gas: u128,
-    pub new_nodes: u64,
-    pub prize: u128,
-    pub stake: u128,
-}
-
-
-impl TreeInfo {
-    /// `TreeInfo` with all fields set to 0.
-    pub fn zero() -> TreeInfo {
-        TreeInfo {
-            fee: 0,
-            gas: 0,
-            new_nodes: 0,
-            prize: 0,
-            stake: 0,
-        }
-    }
-
-    /// Adds fields in two `TreeInfo`s.
-    pub fn plus(self: &TreeInfo, other: &TreeInfo) -> TreeInfo {
-        TreeInfo {
-            fee: self.fee + other.fee,
-            gas: self.gas + other.gas,
-            new_nodes: self.new_nodes + other.new_nodes,
-            prize: self.prize + other.prize,
-            stake: self.stake + other.stake,
-        }
-    }
-
-    /// Gets `TreeInfo` cached in a `QuorumNodeBody`.
-    pub fn from_quorum_node_body(qnb: &QuorumNodeBody) -> TreeInfo {
-        TreeInfo {
-            fee: qnb.total_fee,
-            gas: qnb.total_gas,
-            new_nodes: qnb.new_nodes,
-            prize: qnb.total_prize,
-            stake: qnb.total_stake,
-        }
-    }
-}
 
 /// Inserts a child into a list of radix hash children, replacing a child
 /// with the same first character if one exists.
@@ -230,11 +184,13 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
         data_tree: Some(data_tree),
         new_action: None,
         prize: 0,
-        new_nodes: node_count as u64,
-        total_fee: 0,
-        total_gas: 0,
-        total_stake: stake,
-        total_prize: 0,
+        stats: QuorumNodeStats {
+            new_nodes: node_count as u64,
+            fee: 0,
+            gas: 0,
+            stake: stake,
+            prize: 0,
+        }
     };
     Ok((fields, node))
 }
@@ -278,10 +234,12 @@ pub async fn add_action_to_account<HL: HashLookup + HashPut>(
         data_tree: Some(data_tree),
         prize,
         new_action: Some(hl.put(action).await?),
-        new_nodes: (node_count as u64) + 1, // node_count data nodes + 1 quorum node
-        total_fee: action.fee,
-        total_gas: 0,
-        total_stake: new_stake,
-        total_prize: prize,
+        stats: QuorumNodeStats {
+            new_nodes: (node_count as u64) + 1, // node_count data nodes + 1 quorum node
+            fee: action.fee,
+            gas: 0,
+            stake: new_stake,
+            prize: prize,
+        }
     })
 }

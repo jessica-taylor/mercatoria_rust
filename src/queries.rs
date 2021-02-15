@@ -185,7 +185,7 @@ async fn stake_indexed_account<HL: HashLookup>(
     mut stake_ix: u128,
 ) -> Result<HashCode, anyhow::Error> {
     'outer: loop {
-        if stake_ix >= qn.body.total_stake {
+        if stake_ix >= qn.body.stats.stake {
             bail!("index exceeds total stake");
         }
         let path = qn.body.path.clone();
@@ -196,7 +196,7 @@ async fn stake_indexed_account<HL: HashLookup>(
         for (_, child_hash) in qn.body.children.clone() {
             children.push(hl.lookup(child_hash).await?);
         }
-        let child_stakes: Vec<u128> = children.iter().map(|ch| ch.body.total_stake).collect();
+        let child_stakes: Vec<u128> = children.iter().map(|ch| ch.body.stats.stake).collect();
         let mut sum_so_far = 0;
         for i in 0..children.len() {
             if stake_ix < sum_so_far + child_stakes[i] {
@@ -225,7 +225,7 @@ pub async fn random_account<HL: HashLookup>(
     }
     let stake_main = block_with_version(hl, main, rounded).await?;
     let top = hl.lookup(stake_main.tree).await?;
-    if top.body.total_stake == 0 {
+    if top.body.stats.stake == 0 {
         bail!("can't select random account when there is no stake");
     }
     let full_id = format!("random_account {:?} {} {}", seed, main.version, rand_id);
@@ -235,7 +235,7 @@ pub async fn random_account<HL: HashLookup>(
         rand_val *= 256;
         rand_val += u128::from(rand_hash[i]);
     }
-    stake_indexed_account(hl, &top, rand_val % top.body.total_stake).await
+    stake_indexed_account(hl, &top, rand_val % top.body.stats.stake).await
 }
 
 /// Gets the miner and signers of a block following a given block.

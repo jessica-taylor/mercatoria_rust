@@ -7,12 +7,11 @@ use anyhow::{anyhow, bail};
 
 use crate::account_construction::{add_action_to_account, children_paths_well_formed};
 use crate::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
+    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, QuorumNodeStats
 };
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, HexPath};
-use crate::account_construction::{TreeInfo};
 use crate::queries::{is_prefix, longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
 async fn verify_data_tree<HL: HashLookup>(
@@ -43,8 +42,8 @@ async fn quorum_node_body_score<HL: HashLookup>(
     qnb: &QuorumNodeBody,
 ) -> Result<Option<u128>, anyhow::Error> {
     let opts = hl.lookup(last_main.block.body.options).await?;
-    let pos = qnb.total_fee;
-    let neg = qnb.total_prize + opts.gas_cost * qnb.total_gas;
+    let pos = qnb.stats.fee;
+    let neg = qnb.stats.prize + opts.gas_cost * qnb.stats.gas;
     if neg > pos {
         Ok(None)
     } else {
@@ -146,45 +145,45 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     qnb: &'a QuorumNodeBody
 ) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + Send + 'a>> {
     async move {
-    verify_well_formed_quorum_node_body(hl, last_main, qnb).await?;
-    if qnb.path.len() == 64 {
-        verify_data_tree(hl, last_main, path_to_hash_code(qnb.path.clone()), qnb).await?;
-    } else {
-        match lookup_quorum_node(hl, &last_main.block.body, &qnb.path).await? {
-            None => {}
-            Some((prev_node, suffix)) => {
-                'outer: for (prev_child_suffix, _) in &prev_node.body.children {
-                    if is_prefix(&suffix, prev_child_suffix) {
-                        for (new_child_suffix, _) in &qnb.children {
-                            if is_prefix(new_child_suffix, &suffix[prev_child_suffix.len()..]) {
-                                continue 'outer;
+        verify_well_formed_quorum_node_body(hl, last_main, qnb).await?;
+        if qnb.path.len() == 64 {
+            verify_data_tree(hl, last_main, path_to_hash_code(qnb.path.clone()), qnb).await?;
+        } else {
+            match lookup_quorum_node(hl, &last_main.block.body, &qnb.path).await? {
+                None => {}
+                Some((prev_node, suffix)) => {
+                    'outer: for (prev_child_suffix, _) in &prev_node.body.children {
+                        if is_prefix(&suffix, prev_child_suffix) {
+                            for (new_child_suffix, _) in &qnb.children {
+                                if is_prefix(new_child_suffix, &suffix[prev_child_suffix.len()..]) {
+                                    continue 'outer;
+                                }
                             }
+                            bail!("new node drops a child present in old node");
                         }
-                        bail!("new node drops a child present in old node");
                     }
                 }
             }
-        }
-        let mut expected_tree_info = TreeInfo::zero();
-        for (child_suffix, child_hash) in &qnb.children {
-            let child = hl.lookup(*child_hash).await?;
-            if child.body.path != [&qnb.path[..], &child_suffix[..]].concat() {
-                bail!("child path is not correct based on parent path and suffix");
+            let mut expected_stats = QuorumNodeStats::zero();
+            for (child_suffix, child_hash) in &qnb.children {
+                let child = hl.lookup(*child_hash).await?;
+                if child.body.path != [&qnb.path[..], &child_suffix[..]].concat() {
+                    bail!("child path is not correct based on parent path and suffix");
+                }
+                if Some((child.clone(), vec![])) == lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
+                    expected_stats.stake += child.body.stats.stake;
+                } else {
+                    verify_endorsed_quorum_node(hl, last_main, &child).await?;
+                    expected_stats = expected_stats.plus(&child.body.stats);
+                }
             }
-            if Some((child.clone(), vec![])) == lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
-                expected_tree_info.stake += child.body.total_stake;
-            } else {
-                verify_endorsed_quorum_node(hl, last_main, &child).await?;
-                expected_tree_info = expected_tree_info.plus(&TreeInfo::from_quorum_node_body(&child.body));
+            expected_stats.new_nodes += 1;
+            expected_stats.prize += qnb.prize;
+            if qnb.stats != expected_stats {
+                bail!("tree info is not expected based on child tree infos");
             }
         }
-        expected_tree_info.new_nodes += 1;
-        expected_tree_info.prize += qnb.prize;
-        if TreeInfo::from_quorum_node_body(qnb) != expected_tree_info {
-            bail!("tree info is not expected based on child tree infos");
-        }
-    }
-    Ok(())
+        Ok(())
     }.boxed()
 }
 

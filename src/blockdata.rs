@@ -40,6 +40,40 @@ pub struct MainBlock {
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
+pub struct QuorumNodeStats {
+    pub fee: u128,
+    pub gas: u128,
+    pub new_nodes: u64,
+    pub prize: u128,
+    pub stake: u128,
+}
+
+
+impl QuorumNodeStats {
+    /// `QuorumNodeStats` with all fields set to 0.
+    pub fn zero() -> QuorumNodeStats {
+        QuorumNodeStats {
+            fee: 0,
+            gas: 0,
+            new_nodes: 0,
+            prize: 0,
+            stake: 0,
+        }
+    }
+
+    /// Adds fields in two `QuorumNodeStats`s.
+    pub fn plus(self: &QuorumNodeStats, other: &QuorumNodeStats) -> QuorumNodeStats {
+        QuorumNodeStats {
+            fee: self.fee + other.fee,
+            gas: self.gas + other.gas,
+            new_nodes: self.new_nodes + other.new_nodes,
+            prize: self.prize + other.prize,
+            stake: self.stake + other.stake,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct QuorumNodeBody {
     pub last_main: Option<Hash<MainBlock>>,
     pub path: HexPath,
@@ -47,11 +81,7 @@ pub struct QuorumNodeBody {
     pub data_tree: Option<Hash<DataNode>>,
     pub new_action: Option<Hash<Action>>,
     pub prize: u128,
-    pub new_nodes: u64,
-    pub total_fee: u128,
-    pub total_gas: u128,
-    pub total_prize: u128,
-    pub total_stake: u128,
+    pub stats: QuorumNodeStats,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
