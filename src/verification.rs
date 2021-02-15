@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{anyhow, bail};
 
@@ -6,10 +6,11 @@ use crate::account_construction::{add_action_to_account, children_paths_well_for
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
 };
-use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
+use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, HexPath};
-use crate::queries::{is_prefix, longest_prefix_length, lookup_account};
+use crate::account_construction::{TreeInfo};
+use crate::queries::{is_prefix, longest_prefix_length, lookup_account, quorums_by_prev_block};
 
 async fn verify_data_tree<HL: HashLookup>(
     hl: &HL,
@@ -89,3 +90,60 @@ async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
     }
     Ok(())
 }
+
+async fn verify_endorsed_quorum_node<HL: HashLookup>(
+    hl: &HL,
+    last_main: &MainBlock,
+    node: &QuorumNode
+) -> Result<TreeInfo, anyhow::Error> {
+    verify_well_formed_quorum_node_body(hl, last_main, &node.body).await?;
+    match node.signatures {
+        None => {
+            if node.body.prize != 0 {
+                bail!("node with no signatures must have no prize");
+            }
+            return verify_valid_quorum_node_body(hl, last_main, &node.body).await;
+        }
+        Some(sigs_hash) => {
+            let sigs = hl.lookup(sigs_hash).await?;
+            let mut acct_set = BTreeSet::<HashCode>::new();
+            for sig in &sigs {
+                if !verify_sig(&node.body, &sig) {
+                    bail!("quorum node signature invalid");
+                }
+                acct_set.insert(hash(&sig.key).code);
+            }
+            if acct_set.len() != sigs.len() {
+                bail!("duplicate signature keys");
+            }
+            let quorums = quorums_by_prev_block(hl, &last_main.block.body, node.body.path.clone()).await?;
+            let mut satisfied = false;
+            'outer: for (quorum, threshold) in quorums {
+                if sigs.len() as u32 >= threshold {
+                    for quorum_acct in quorum {
+                        if !acct_set.contains(&quorum_acct) {
+                            continue 'outer;
+                        }
+                    }
+                    satisfied = true;
+                    break;
+                }
+            }
+            if !satisfied {
+                bail!("no quorum is satisfied");
+            }
+            let mut ti = TreeInfo::from_quorum_node_body(&node.body);
+            ti.new_quorums += 1;
+            Ok(ti)
+        }
+    }
+}
+
+async fn verify_valid_quorum_node_body<HL: HashLookup>(
+    hl: &HL,
+    last_main: &MainBlock,
+    qnb: &QuorumNodeBody
+) -> Result<TreeInfo, anyhow::Error> {
+    bail!("not implemented");
+}
+

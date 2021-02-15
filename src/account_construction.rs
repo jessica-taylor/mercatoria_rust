@@ -43,23 +43,10 @@ pub struct TreeInfo {
     pub new_quorums: u64,
 }
 
-/// Gets `TreeInfo` cached in a `QuorumNodeBody`; `new_transactions` and `new_quorums'
-/// are set to 0.
-fn cached_tree_info(qnb: &QuorumNodeBody) -> TreeInfo {
-    TreeInfo {
-        fee: qnb.total_fee,
-        gas: qnb.total_gas,
-        new_nodes: qnb.new_nodes,
-        prize: qnb.total_prize,
-        stake: qnb.total_stake,
-        new_transactions: 0,
-        new_quorums: 0,
-    }
-}
 
 impl TreeInfo {
     /// `TreeInfo` with all fields set to 0.
-    fn zero() -> TreeInfo {
+    pub fn zero() -> TreeInfo {
         TreeInfo {
             fee: 0,
             gas: 0,
@@ -72,7 +59,7 @@ impl TreeInfo {
     }
 
     /// Adds fields in two `TreeInfo`s.
-    fn plus(self: &TreeInfo, other: &TreeInfo) -> TreeInfo {
+    pub fn plus(self: &TreeInfo, other: &TreeInfo) -> TreeInfo {
         TreeInfo {
             fee: self.fee + other.fee,
             gas: self.gas + other.gas,
@@ -81,6 +68,20 @@ impl TreeInfo {
             stake: self.stake + other.stake,
             new_transactions: self.new_transactions + other.new_transactions,
             new_quorums: self.new_quorums + other.new_quorums,
+        }
+    }
+
+    /// Gets `TreeInfo` cached in a `QuorumNodeBody`; `new_transactions` and `new_quorums'
+    /// are set to 0.
+    pub fn from_quorum_node_body(qnb: &QuorumNodeBody) -> TreeInfo {
+        TreeInfo {
+            fee: qnb.total_fee,
+            gas: qnb.total_gas,
+            new_nodes: qnb.new_nodes,
+            prize: qnb.total_prize,
+            stake: qnb.total_stake,
+            new_transactions: 0,
+            new_quorums: 0,
         }
     }
 }
