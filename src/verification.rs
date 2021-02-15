@@ -14,28 +14,6 @@ use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{is_prefix, longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
-async fn verify_data_tree<HL: HashLookup>(
-    hl: &HL,
-    last_main: &MainBlock,
-    account: HashCode,
-    acct_node: &QuorumNodeBody,
-) -> Result<(), anyhow::Error> {
-    let action = hl
-        .lookup(
-            acct_node
-                .new_action
-                .ok_or(anyhow!("new account node must have an action"))?,
-        )
-        .await?;
-    let mut hp = HashPutOfHashLookup::new(hl);
-    let qnb_expected =
-        add_action_to_account(&mut hp, last_main, account, &action, acct_node.prize).await?;
-    if *acct_node != qnb_expected {
-        bail!("account node is not the expected one");
-    }
-    Ok(())
-}
-
 async fn quorum_node_body_score<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
@@ -150,7 +128,20 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     async move {
         verify_well_formed_quorum_node_body(hl, last_main, qnb).await?;
         if qnb.path.len() == 64 {
-            verify_data_tree(hl, last_main, path_to_hash_code(qnb.path.clone()), qnb).await?;
+            let account = path_to_hash_code(qnb.path.clone());
+            let action = hl
+                .lookup(
+                    qnb
+                        .new_action
+                        .ok_or(anyhow!("new account node must have an action"))?,
+                )
+                .await?;
+            let mut hp = HashPutOfHashLookup::new(hl);
+            let qnb_expected =
+                add_action_to_account(&mut hp, last_main, account, &action, qnb.prize).await?;
+            if *qnb != qnb_expected {
+                bail!("account node is not the expected one");
+            }
         } else {
             match lookup_quorum_node(hl, &last_main.block.body, &qnb.path).await? {
                 None => {}
