@@ -14,6 +14,8 @@ use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{is_prefix, longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
+
+/// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
 async fn quorum_node_body_score<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
@@ -29,6 +31,7 @@ async fn quorum_node_body_score<HL: HashLookup>(
     }
 }
 
+/// Verifies that a `QuorumNodyBody` satisfies some well-formedness conditions.
 async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
@@ -88,22 +91,23 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
         }
         Some(sigs_hash) => {
             let sigs = hl.lookup(sigs_hash).await?;
-            let mut acct_set = BTreeSet::<HashCode>::new();
+            let mut signers = BTreeSet::<HashCode>::new();
             for sig in &sigs {
                 if !verify_sig(&node.body, &sig) {
                     bail!("quorum node signature invalid");
                 }
-                acct_set.insert(hash(&sig.key).code);
+                signers.insert(hash(&sig.key).code);
             }
-            if acct_set.len() != sigs.len() {
+            if signers.len() != sigs.len() {
                 bail!("duplicate signature keys");
             }
             let quorums = quorums_by_prev_block(hl, &last_main.block.body, node.body.path.clone()).await?;
             let mut satisfied = false;
             'outer: for (quorum, threshold) in quorums {
                 if sigs.len() as u32 >= threshold {
+                    // did all quorum members sign?
                     for quorum_acct in quorum {
-                        if !acct_set.contains(&quorum_acct) {
+                        if !signers.contains(&quorum_acct) {
                             continue 'outer;
                         }
                     }
@@ -120,6 +124,8 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
 }
 
 // TODO: consider replacing this with construction
+/// Verifies that a quorum node is valid, in the sense that it
+/// follows correctly from the old node and the new children.
 fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     hl: &'a HL,
     last_main: &'a MainBlock,
@@ -128,6 +134,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     async move {
         verify_well_formed_quorum_node_body(hl, last_main, qnb).await?;
         if qnb.path.len() == 64 {
+            // run the action to produce the expected new node
             let account = path_to_hash_code(qnb.path.clone());
             let action = hl
                 .lookup(
@@ -146,6 +153,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
             match lookup_quorum_node(hl, &last_main.block.body, &qnb.path).await? {
                 None => {}
                 Some((prev_node, suffix)) => {
+                    // check that all old children are present
                     'outer: for (prev_child_suffix, _) in &prev_node.body.children {
                         if is_prefix(&suffix, prev_child_suffix) {
                             for (new_child_suffix, _) in &qnb.children {
@@ -161,16 +169,19 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
             let mut expected_stats = QuorumNodeStats::zero();
             for (child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
+                // check that child path is correct
                 if child.body.path != [&qnb.path[..], &child_suffix[..]].concat() {
                     bail!("child path is not correct based on parent path and suffix");
                 }
                 if Some((child.clone(), vec![])) == lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
                     expected_stats.stake += child.body.stats.stake;
                 } else {
+                    // check that child is valid
                     verify_endorsed_quorum_node(hl, last_main, &child).await?;
                     expected_stats = expected_stats.plus(&child.body.stats);
                 }
             }
+            // check stats
             expected_stats.new_nodes += 1;
             expected_stats.prize += qnb.prize;
             if qnb.stats != expected_stats {
