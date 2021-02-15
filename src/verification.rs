@@ -1,5 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::pin::Pin;
 
+use futures_lite::{future, FutureExt};
 use anyhow::{anyhow, bail};
 
 use crate::account_construction::{add_action_to_account, children_paths_well_formed};
@@ -10,7 +13,7 @@ use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::account_construction::{TreeInfo};
-use crate::queries::{is_prefix, longest_prefix_length, lookup_account, quorums_by_prev_block};
+use crate::queries::{is_prefix, longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
 async fn verify_data_tree<HL: HashLookup>(
     hl: &HL,
@@ -95,14 +98,14 @@ async fn verify_endorsed_quorum_node<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
     node: &QuorumNode
-) -> Result<TreeInfo, anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     verify_well_formed_quorum_node_body(hl, last_main, &node.body).await?;
     match node.signatures {
         None => {
             if node.body.prize != 0 {
                 bail!("node with no signatures must have no prize");
             }
-            return verify_valid_quorum_node_body(hl, last_main, &node.body).await;
+            verify_valid_quorum_node_body(hl, last_main, &node.body).await?;
         }
         Some(sigs_hash) => {
             let sigs = hl.lookup(sigs_hash).await?;
@@ -132,18 +135,56 @@ async fn verify_endorsed_quorum_node<HL: HashLookup>(
             if !satisfied {
                 bail!("no quorum is satisfied");
             }
-            let mut ti = TreeInfo::from_quorum_node_body(&node.body);
-            ti.new_quorums += 1;
-            Ok(ti)
         }
     }
+    Ok(())
 }
 
-async fn verify_valid_quorum_node_body<HL: HashLookup>(
-    hl: &HL,
-    last_main: &MainBlock,
-    qnb: &QuorumNodeBody
-) -> Result<TreeInfo, anyhow::Error> {
-    bail!("not implemented");
+fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
+    hl: &'a HL,
+    last_main: &'a MainBlock,
+    qnb: &'a QuorumNodeBody
+) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + Send + 'a>> {
+    async move {
+    verify_well_formed_quorum_node_body(hl, last_main, qnb).await?;
+    if qnb.path.len() == 64 {
+        verify_data_tree(hl, last_main, path_to_hash_code(qnb.path.clone()), qnb).await?;
+    } else {
+        match lookup_quorum_node(hl, &last_main.block.body, &qnb.path).await? {
+            None => {}
+            Some((prev_node, suffix)) => {
+                'outer: for (prev_child_suffix, _) in &prev_node.body.children {
+                    if is_prefix(&suffix, prev_child_suffix) {
+                        for (new_child_suffix, _) in &qnb.children {
+                            if is_prefix(new_child_suffix, &suffix[prev_child_suffix.len()..]) {
+                                continue 'outer;
+                            }
+                        }
+                        bail!("new node drops a child present in old node");
+                    }
+                }
+            }
+        }
+        let mut expected_tree_info = TreeInfo::zero();
+        for (child_suffix, child_hash) in &qnb.children {
+            let child = hl.lookup(*child_hash).await?;
+            if child.body.path != [&qnb.path[..], &child_suffix[..]].concat() {
+                bail!("child path is not correct based on parent path and suffix");
+            }
+            if Some((child.clone(), vec![])) == lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
+                expected_tree_info.stake += child.body.total_stake;
+            } else {
+                verify_endorsed_quorum_node(hl, last_main, &child).await?;
+                expected_tree_info = expected_tree_info.plus(&TreeInfo::from_quorum_node_body(&child.body));
+            }
+        }
+        expected_tree_info.new_nodes += 1;
+        expected_tree_info.prize += qnb.prize;
+        if TreeInfo::from_quorum_node_body(qnb) != expected_tree_info {
+            bail!("tree info is not expected based on child tree infos");
+        }
+    }
+    Ok(())
+    }.boxed()
 }
 

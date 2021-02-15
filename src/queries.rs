@@ -9,7 +9,7 @@ use anyhow::{anyhow, bail};
 use serde::de::DeserializeOwned;
 
 /// Is the first vector a prefix of the second?
-pub fn is_prefix<T: Eq>(pre: &Vec<T>, full: &Vec<T>) -> bool {
+pub fn is_prefix<T: Eq>(pre: &[T], full: &[T]) -> bool {
     if pre.len() > full.len() {
         return false;
     }

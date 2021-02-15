@@ -33,14 +33,13 @@ fn data_node_well_formed(dn: &DataNode) -> bool {
 
 /// Summary statistics about a `QuorumNode`, summing all data at or below the
 /// node.
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TreeInfo {
     pub fee: u128,
     pub gas: u128,
     pub new_nodes: u64,
     pub prize: u128,
     pub stake: u128,
-    pub new_transactions: u64,
-    pub new_quorums: u64,
 }
 
 
@@ -53,8 +52,6 @@ impl TreeInfo {
             new_nodes: 0,
             prize: 0,
             stake: 0,
-            new_transactions: 0,
-            new_quorums: 0,
         }
     }
 
@@ -66,13 +63,10 @@ impl TreeInfo {
             new_nodes: self.new_nodes + other.new_nodes,
             prize: self.prize + other.prize,
             stake: self.stake + other.stake,
-            new_transactions: self.new_transactions + other.new_transactions,
-            new_quorums: self.new_quorums + other.new_quorums,
         }
     }
 
-    /// Gets `TreeInfo` cached in a `QuorumNodeBody`; `new_transactions` and `new_quorums'
-    /// are set to 0.
+    /// Gets `TreeInfo` cached in a `QuorumNodeBody`.
     pub fn from_quorum_node_body(qnb: &QuorumNodeBody) -> TreeInfo {
         TreeInfo {
             fee: qnb.total_fee,
@@ -80,8 +74,6 @@ impl TreeInfo {
             new_nodes: qnb.new_nodes,
             prize: qnb.total_prize,
             stake: qnb.total_stake,
-            new_transactions: 0,
-            new_quorums: 0,
         }
     }
 }
