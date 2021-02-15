@@ -139,6 +139,7 @@ async fn verify_endorsed_quorum_node<HL: HashLookup>(
     Ok(())
 }
 
+// TODO: consider replacing this with construction
 fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     hl: &'a HL,
     last_main: &'a MainBlock,
