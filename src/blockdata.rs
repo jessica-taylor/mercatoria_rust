@@ -127,7 +127,19 @@ impl RadixHashNode for QuorumNode {
     async fn replace_children<HL: HashLookup>(mut self, hl: &HL, new_children: Vec<(HexPath, Hash<QuorumNode>)>) -> Result<QuorumNode, anyhow::Error> {
         self.body.children = new_children;
         self.signatures = None;
-        // TODO stats
+        self.body.stats = QuorumNodeStats::zero();
+        self.body.stats.prize = self.body.prize;
+        self.body.stats.new_nodes = 1;
+        for (_, hash_child) in &self.body.children {
+            let child = hl.lookup(*hash_child).await?;
+            self.body.stats.stake += child.body.stats.stake;
+            if self.body.last_main == child.body.last_main {
+                self.body.stats.fee += child.body.stats.fee;
+                self.body.stats.gas += child.body.stats.gas;
+                self.body.stats.prize += child.body.stats.prize;
+                self.body.stats.new_nodes += child.body.stats.new_nodes;
+            }
+        }
         Ok(self)
     }
 
