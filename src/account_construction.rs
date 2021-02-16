@@ -12,8 +12,8 @@ use crate::blockdata::{
 };
 use crate::crypto::{hash, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
-use crate::hex_path::{bytes_to_path, HexPath};
-use crate::queries::{is_prefix, longest_prefix_length, lookup_account};
+use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
+use crate::queries::{longest_prefix_length, lookup_account};
 
 /// Checks whether a radix hash node's children are well-formed.
 pub fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {

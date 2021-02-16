@@ -19,3 +19,16 @@ pub fn bytes_to_path(bs: &[u8]) -> HexPath {
     }
     p
 }
+
+/// Is the first vector a prefix of the second?
+pub fn is_prefix<T: Eq>(pre: &[T], full: &[T]) -> bool {
+    if pre.len() > full.len() {
+        return false;
+    }
+    for i in 0..pre.len() {
+        if pre[i] != full[i] {
+            return false;
+        }
+    }
+    true
+}

@@ -3,23 +3,10 @@ use std::cmp::min;
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
-use crate::hex_path::{bytes_to_path, HexPath};
+use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
 
 use anyhow::{anyhow, bail};
 use serde::de::DeserializeOwned;
-
-/// Is the first vector a prefix of the second?
-pub fn is_prefix<T: Eq>(pre: &[T], full: &[T]) -> bool {
-    if pre.len() > full.len() {
-        return false;
-    }
-    for i in 0..pre.len() {
-        if pre[i] != full[i] {
-            return false;
-        }
-    }
-    true
-}
 
 /// What is the length of the longest common prefix between two vectors?
 pub fn longest_prefix_length<T: Eq>(xs: &Vec<T>, ys: &Vec<T>) -> usize {

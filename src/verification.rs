@@ -11,8 +11,8 @@ use crate::blockdata::{
 };
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
-use crate::hex_path::{bytes_to_path, HexPath};
-use crate::queries::{is_prefix, longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
+use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
+use crate::queries::{longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).

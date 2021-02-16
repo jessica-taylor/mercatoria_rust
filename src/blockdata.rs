@@ -1,10 +1,12 @@
 use crate::crypto::{Hash, HashCode, Signature};
-use crate::hex_path::HexPath;
+use crate::hex_path::{HexPath, is_prefix};
 use crate::hashlookup::HashLookup;
 
 use serde::{Deserialize, de::DeserializeOwned, Serialize};
 
 use async_trait::async_trait;
+
+use anyhow::bail;
 
 /// A node in a radix hash tree.
 #[async_trait]
@@ -130,8 +132,11 @@ impl RadixHashNode for QuorumNode {
         self.body.stats = QuorumNodeStats::zero();
         self.body.stats.prize = self.body.prize;
         self.body.stats.new_nodes = 1;
-        for (_, hash_child) in &self.body.children {
+        for (suffix, hash_child) in &self.body.children {
             let child = hl.lookup(*hash_child).await?;
+            if child.body.path != [&self.body.path[..], &suffix[..]].concat() {
+                bail!("quorum child node has wrong path");
+            }
             self.body.stats.stake += child.body.stats.stake;
             if self.body.last_main == child.body.last_main {
                 self.body.stats.fee += child.body.stats.fee;
@@ -145,6 +150,9 @@ impl RadixHashNode for QuorumNode {
 
     async fn from_single_child<HL: HashLookup>(hl: &HL, child: (HexPath, Hash<QuorumNode>)) -> Result<QuorumNode, anyhow::Error> {
         let child_node = hl.lookup(child.1).await?;
+        if !is_prefix(&child.0, &child_node.body.path) {
+            bail!("quorum child node has wrong prefix");
+        }
         let mut stats = child_node.body.stats;
         stats.new_nodes += 1;
         Ok(QuorumNode {
