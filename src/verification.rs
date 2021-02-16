@@ -168,16 +168,12 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
             }
             for (child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
-                // check that child path is correct
-                if child.body.path != [&qnb.path[..], &child_suffix[..]].concat() {
-                    bail!("child path is not correct based on parent path and suffix");
-                }
                 if Some((child.clone(), vec![])) != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
                     // check that child is valid
                     verify_endorsed_quorum_node(hl, last_main, &child).await?;
                 }
             }
-            // check stats
+            // check child paths and stats
             let qn = QuorumNode {body: qnb.clone(), signatures: None};
             if qn != qn.clone().replace_children(hl, qnb.children.clone()).await? {
                 bail!("quorum node is not expected based on its children");
