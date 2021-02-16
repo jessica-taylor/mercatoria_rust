@@ -1,5 +1,5 @@
 use crate::crypto::{Hash, HashCode, Signature};
-use crate::hex_path::{HexPath, is_prefix};
+use crate::hex_path::{HexPath, is_postfix};
 use crate::hashlookup::HashLookup;
 
 use serde::{Deserialize, de::DeserializeOwned, Serialize};
@@ -150,8 +150,8 @@ impl RadixHashNode for QuorumNode {
 
     async fn from_single_child<HL: HashLookup>(hl: &HL, child: (HexPath, Hash<QuorumNode>)) -> Result<QuorumNode, anyhow::Error> {
         let child_node = hl.lookup(child.1).await?;
-        if !is_prefix(&child.0, &child_node.body.path) {
-            bail!("quorum child node has wrong prefix");
+        if !is_postfix(&child.0, &child_node.body.path) {
+            bail!("quorum child node has wrong postfix");
         }
         let mut stats = child_node.body.stats;
         stats.new_nodes += 1;

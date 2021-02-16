@@ -32,3 +32,16 @@ pub fn is_prefix<T: Eq>(pre: &[T], full: &[T]) -> bool {
     }
     true
 }
+
+/// Is the first vector a postfix of the second?
+pub fn is_postfix<T: Eq>(post: &[T], full: &[T]) -> bool {
+    if post.len() > full.len() {
+        return false;
+    }
+    for i in 0..pre.len() {
+        if pre[i + full.len() - post.len()] != full[i] {
+            return false;
+        }
+    }
+    true
+}
