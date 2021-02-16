@@ -166,10 +166,10 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                     }
                 }
             }
+            // check that new children are endorsed
             for (child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
                 if Some((child.clone(), vec![])) != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
-                    // check that child is valid
                     verify_endorsed_quorum_node(hl, last_main, &child).await?;
                 }
             }
