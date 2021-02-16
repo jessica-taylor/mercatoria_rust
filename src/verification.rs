@@ -7,7 +7,7 @@ use anyhow::{anyhow, bail};
 
 use crate::account_construction::{add_action_to_account, children_paths_well_formed};
 use crate::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, QuorumNodeStats
+    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixHashNode
 };
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
@@ -166,26 +166,21 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                     }
                 }
             }
-            let mut expected_stats = QuorumNodeStats::zero();
             for (child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
                 // check that child path is correct
                 if child.body.path != [&qnb.path[..], &child_suffix[..]].concat() {
                     bail!("child path is not correct based on parent path and suffix");
                 }
-                if Some((child.clone(), vec![])) == lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
-                    expected_stats.stake += child.body.stats.stake;
-                } else {
+                if Some((child.clone(), vec![])) != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
                     // check that child is valid
                     verify_endorsed_quorum_node(hl, last_main, &child).await?;
-                    expected_stats = expected_stats.plus(&child.body.stats);
                 }
             }
             // check stats
-            expected_stats.new_nodes += 1;
-            expected_stats.prize += qnb.prize;
-            if qnb.stats != expected_stats {
-                bail!("tree info is not expected based on child tree infos");
+            let qn = QuorumNode {body: qnb.clone(), signatures: None};
+            if qn != qn.clone().replace_children(hl, qnb.children.clone()).await? {
+                bail!("quorum node is not expected based on its children");
             }
         }
         Ok(())
