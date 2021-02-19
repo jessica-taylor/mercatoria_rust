@@ -1,9 +1,11 @@
 use std::cmp::min;
 
-use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
-use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
-use crate::hashlookup::HashLookup;
-use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
+use mercatoria_types::{
+    blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode},
+    crypto::{hash, path_to_hash_code, Hash, HashCode},
+    hashlookup::HashLookup,
+    hex_path::{bytes_to_path, is_prefix, HexPath},
+};
 
 use anyhow::{anyhow, bail};
 use serde::de::DeserializeOwned;
@@ -19,10 +21,7 @@ pub fn longest_prefix_length<T: Eq>(xs: &Vec<T>, ys: &Vec<T>) -> usize {
 }
 
 /// Follows a path in a radix hash tree.
-pub async fn rh_follow_path<
-    HL: HashLookup,
-    N: RadixHashNode,
->(
+pub async fn rh_follow_path<HL: HashLookup, N: RadixHashNode>(
     hl: &HL,
     init_node: N,
     path: &HexPath,

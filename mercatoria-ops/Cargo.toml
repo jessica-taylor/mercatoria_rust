@@ -1,0 +1,19 @@
+[package]
+name = "mercatoria-ops"
+version = "0.1.0"
+authors = ["theseriousadult <jack@gallabytes.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.38"
+async-trait = "0.1.42"
+ed25519-dalek = { version = "1.0.1", features = ["serde"] }
+futures-lite = "1.11.3"
+rmp-serde = "0.15.4"
+serde = { version = "1.0.123", features = ["derive"] }
+
+[dependencies.mercatoria-types]
+path = "../mercatoria-types/"
+

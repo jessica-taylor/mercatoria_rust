@@ -1,24 +1,33 @@
-use crate::crypto::{Hash, HashCode, Signature};
-use crate::hex_path::{HexPath, is_postfix};
-use crate::hashlookup::HashLookup;
-
-use serde::{Deserialize, de::DeserializeOwned, Serialize};
-
-use async_trait::async_trait;
+use crate::{
+    crypto::{Hash, HashCode, Signature},
+    hashlookup::HashLookup,
+    hex_path::{is_postfix, HexPath},
+};
 
 use anyhow::bail;
+use async_trait::async_trait;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// A node in a radix hash tree.
 #[async_trait]
-pub trait RadixHashNode: Sized + DeserializeOwned + Clone + Send + Serialize + DeserializeOwned + Sync {
+pub trait RadixHashNode:
+    Sized + DeserializeOwned + Clone + Send + Serialize + DeserializeOwned + Sync
+{
     /// Gets the children of the node.
     fn get_children(&self) -> &Vec<(HexPath, Hash<Self>)>;
 
     /// Replaces the children of the node.
-    async fn replace_children<HL: HashLookup>(self, hl: &HL, new_children: Vec<(HexPath, Hash<Self>)>) -> Result<Self, anyhow::Error>;
+    async fn replace_children<HL: HashLookup>(
+        self,
+        hl: &HL,
+        new_children: Vec<(HexPath, Hash<Self>)>,
+    ) -> Result<Self, anyhow::Error>;
 
     /// Creates a node with a single child.
-    async fn from_single_child<HL: HashLookup>(hl: &HL, child: (HexPath, Hash<Self>)) -> Result<Self, anyhow::Error>;
+    async fn from_single_child<HL: HashLookup>(
+        hl: &HL,
+        child: (HexPath, Hash<Self>),
+    ) -> Result<Self, anyhow::Error>;
 }
 
 /// The body of a `MainBlock`.  It doesn't contain signatures.
@@ -76,7 +85,6 @@ pub struct QuorumNodeStats {
     pub stake: u128,
 }
 
-
 impl QuorumNodeStats {
     /// `QuorumNodeStats` with all fields set to 0.
     pub fn zero() -> QuorumNodeStats {
@@ -126,7 +134,11 @@ impl RadixHashNode for QuorumNode {
         &self.body.children
     }
 
-    async fn replace_children<HL: HashLookup>(mut self, hl: &HL, new_children: Vec<(HexPath, Hash<QuorumNode>)>) -> Result<QuorumNode, anyhow::Error> {
+    async fn replace_children<HL: HashLookup>(
+        mut self,
+        hl: &HL,
+        new_children: Vec<(HexPath, Hash<QuorumNode>)>,
+    ) -> Result<QuorumNode, anyhow::Error> {
         self.body.children = new_children;
         self.signatures = None;
         self.body.stats = QuorumNodeStats::zero();
@@ -148,7 +160,10 @@ impl RadixHashNode for QuorumNode {
         Ok(self)
     }
 
-    async fn from_single_child<HL: HashLookup>(hl: &HL, child: (HexPath, Hash<QuorumNode>)) -> Result<QuorumNode, anyhow::Error> {
+    async fn from_single_child<HL: HashLookup>(
+        hl: &HL,
+        child: (HexPath, Hash<QuorumNode>),
+    ) -> Result<QuorumNode, anyhow::Error> {
         let child_node = hl.lookup(child.1).await?;
         if !is_postfix(&child.0, &child_node.body.path) {
             bail!("quorum child node has wrong postfix");
@@ -164,8 +179,8 @@ impl RadixHashNode for QuorumNode {
                 data_tree: None,
                 new_action: None,
                 prize: 0,
-                stats
-            }
+                stats,
+            },
         })
     }
 }
@@ -183,15 +198,22 @@ impl RadixHashNode for DataNode {
         &self.children
     }
 
-    async fn replace_children<HL: HashLookup>(mut self, hl: &HL, new_children: Vec<(HexPath, Hash<DataNode>)>) -> Result<DataNode, anyhow::Error> {
+    async fn replace_children<HL: HashLookup>(
+        mut self,
+        _hl: &HL,
+        new_children: Vec<(HexPath, Hash<DataNode>)>,
+    ) -> Result<DataNode, anyhow::Error> {
         self.children = new_children;
         Ok(self)
     }
 
-    async fn from_single_child<HL: HashLookup>(hl: &HL, child: (HexPath, Hash<DataNode>)) -> Result<DataNode, anyhow::Error> {
+    async fn from_single_child<HL: HashLookup>(
+        _hl: &HL,
+        child: (HexPath, Hash<DataNode>),
+    ) -> Result<DataNode, anyhow::Error> {
         Ok(DataNode {
             field: None,
-            children: vec![child]
+            children: vec![child],
         })
     }
 }

@@ -4,13 +4,14 @@ use anyhow::bail;
 use async_trait::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::blockdata::{
-    Action, MainBlock, SendInfo,
-};
-use crate::crypto::{hash, verify_sig, Hash, HashCode, Signature};
-use crate::hashlookup::HashLookup;
-use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{lookup_account, lookup_data_in_account};
+
+use mercatoria_types::{
+    blockdata::{Action, MainBlock, SendInfo},
+    crypto::{hash, verify_sig, Hash, HashCode, Signature},
+    hashlookup::HashLookup,
+    hex_path::{bytes_to_path, HexPath},
+};
 
 /// An typed account data field.
 #[derive(Serialize, Deserialize, Debug)]
