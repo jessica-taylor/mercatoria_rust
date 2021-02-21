@@ -5,7 +5,9 @@ use std::pin::Pin;
 use anyhow::{anyhow, bail};
 use futures_lite::{future, FutureExt};
 
-use crate::account_construction::{add_action_to_account, children_paths_well_formed};
+use crate::account_construction::{
+    add_action_to_account, children_paths_well_formed, insert_into_rh_tree,
+};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats,
@@ -20,37 +22,32 @@ use crate::queries::{
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
     last_main: Option<Hash<MainBlock>>,
-    parent: QuorumNodeBody,
     child_hash: Hash<QuorumNode>,
-) -> Result<QuorumNodeBody, anyhow::Error> {
-    bail!("not implemented");
-    // let child = hl.lookup(child_hash).await?;
-    // if !is_prefix(parent.path, child.body.path) {
-    //     bail!("child path must be an extension of parent path");
-    // }
-    // match last_main {
-    //     None => {}
-    //     Some(main_hash) => {
-    //         verify_endorsed_quorum_node(hl, &hl.lookup(main_hash).await?, &child).await?;
-    //     }
-    // }
-    // let suffix = &child.body.path[parent.path.len()..];
-    // if suffix.len() == 0 {
-    //     return child.body;
-    // }
-    // let mut to_insert = (suffix, child_hash);
-    // for (c_suffix, c_hash) in &parent.children {
-    //     let c = hl.lookup(c.hash).await?;
-    //     if c_suffix[0] == suffix[0] {
-    //         let prev_child = hl.lookup(c_hash).await?;
-    //         if is_prefix(c_suffix, &suffix) {
-    //             let c2 = add_child_to_quorum_node(hl, last_main, c.body, child_hash);
-    //             to_insert = (c_suffix, hl.put(&QuorumNode {body = c, signatures = None});
-    //         } else {
-    //         }
-
-    //     }
-    // }
+    parent_hash: Hash<QuorumNode>,
+) -> Result<Hash<QuorumNode>, anyhow::Error> {
+    let parent = hl.lookup(parent_hash).await?;
+    let child = hl.lookup(child_hash).await?;
+    if !is_prefix(&parent.body.path, &child.body.path) {
+        bail!("child path must extend parent path");
+    }
+    let mut node_count = 0;
+    let replace = |option_node: Option<QuorumNode>| match option_node {
+        None => Ok(child.clone()),
+        Some(node) => {
+            if node.body.path != child.body.path {
+                bail!("path of old node must match new child");
+            }
+            Ok(child.clone())
+        }
+    };
+    insert_into_rh_tree(
+        hl,
+        &mut node_count,
+        child.body.path.clone(),
+        replace,
+        parent_hash,
+    )
+    .await
 }
 
 pub fn new_quorum_node_body<HL: HashLookup + HashPut>(
