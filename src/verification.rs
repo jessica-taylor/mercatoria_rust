@@ -4,17 +4,19 @@ use std::pin::Pin;
 
 use anyhow::{anyhow, bail};
 use futures_lite::{future, FutureExt};
+use serde::Serialize;
 
 use crate::account_construction::{add_action_to_account, children_paths_well_formed};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats, RadixHashNode,
 };
-use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
+use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode, Signature};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
 use crate::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
+    longest_prefix_length, lookup_account, lookup_quorum_node, miner_and_signers_by_prev_block,
+    quorums_by_prev_block,
 };
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
@@ -76,6 +78,23 @@ async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
     Ok(())
 }
 
+fn signatures_to_signers<T: Serialize>(
+    sigs: &Vec<Signature<T>>,
+    signed: &T,
+) -> Result<BTreeSet<HashCode>, anyhow::Error> {
+    let mut signers = BTreeSet::<HashCode>::new();
+    for sig in sigs {
+        if !verify_sig(signed, &sig) {
+            bail!("signature invalid");
+        }
+        signers.insert(hash(&sig.key).code);
+    }
+    if signers.len() != sigs.len() {
+        bail!("duplicate signature keys");
+    }
+    Ok(signers)
+}
+
 /// Verifies that a quorum node is endorsed (i.e. either has enough
 /// signatures or has no signatures but is valid).
 pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
@@ -93,16 +112,7 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
         }
         Some(sigs_hash) => {
             let sigs = hl.lookup(sigs_hash).await?;
-            let mut signers = BTreeSet::<HashCode>::new();
-            for sig in &sigs {
-                if !verify_sig(&node.body, &sig) {
-                    bail!("quorum node signature invalid");
-                }
-                signers.insert(hash(&sig.key).code);
-            }
-            if signers.len() != sigs.len() {
-                bail!("duplicate signature keys");
-            }
+            let signers = signatures_to_signers(&sigs, &node.body)?;
             let quorums =
                 quorums_by_prev_block(hl, &last_main.block.body, node.body.path.clone()).await?;
             let mut satisfied = false;
@@ -240,6 +250,32 @@ pub async fn verify_valid_main_block_body<HL: HashLookup>(
             }
             if main.tree != prev.block.body.tree {
                 verify_endorsed_quorum_node(hl, &prev, &top).await?;
+            }
+            Ok(())
+        }
+    }
+}
+
+pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
+    hl: &HL,
+    main: &PreSignedMainBlock,
+) -> Result<(), anyhow::Error> {
+    match main.body.prev {
+        None => bail!("genesis block is never endorsed"),
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            verify_well_formed_main_block_body(hl, &main.body).await?;
+            let mut signers = signatures_to_signers(&main.signatures, &main.body)?;
+            let (miner, needed_signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
+            let mut count = 0;
+            for signer in needed_signers {
+                if signers.contains(&signer) {
+                    count += 1;
+                }
+            }
+            let opts = hl.lookup(main.body.options).await?;
+            if count < opts.main_block_signatures_required {
+                bail!("not enough main signatures");
             }
             Ok(())
         }
