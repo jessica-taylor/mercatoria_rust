@@ -300,3 +300,12 @@ pub async fn verify_endorsed_main_block<HL: HashLookup>(
         }
     }
 }
+
+pub async fn verify_valid_endorsed_main_block<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlock,
+) -> Result<(), anyhow::Error> {
+    verify_valid_main_block_body(hl, &main.block.body).await?;
+    verify_endorsed_main_block(hl, main).await?;
+    Ok(())
+}
