@@ -178,7 +178,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                 }
             }
             // check that new children are endorsed
-            for (child_suffix, child_hash) in &qnb.children {
+            for (_child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
                 if Some((child.clone(), vec![]))
                     != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await?
@@ -269,7 +269,7 @@ pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
         Some(prev_hash) => {
             let prev = hl.lookup(prev_hash).await?;
             verify_well_formed_main_block_body(hl, &main.body).await?;
-            let mut signers = signatures_to_signers(&main.signatures, &main.body)?;
+            let signers = signatures_to_signers(&main.signatures, &main.body)?;
             let (_miner, needed_signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
             let mut count = 0;
             for signer in needed_signers {
@@ -296,8 +296,8 @@ pub async fn verify_endorsed_main_block<HL: HashLookup>(
         None => bail!("genesis block is never endorsed"),
         Some(prev_hash) => {
             let prev = hl.lookup(prev_hash).await?;
-            verify_endorsed_pre_signed_main_block(hl, &main.block);
-            let mut signers = signatures_to_signers(&vec![main.signature.clone()], &main.block)?;
+            verify_endorsed_pre_signed_main_block(hl, &main.block).await?;
+            let signers = signatures_to_signers(&vec![main.signature.clone()], &main.block)?;
             let (miner, _signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
             if !signers.contains(&miner) {
                 bail!("main must be signed by miner");
