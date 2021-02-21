@@ -22,26 +22,15 @@ pub fn bytes_to_path(bs: &[u8]) -> HexPath {
 
 /// Is the first vector a prefix of the second?
 pub fn is_prefix<T: Eq>(pre: &[T], full: &[T]) -> bool {
-    if pre.len() > full.len() {
-        return false;
-    }
-    for i in 0..pre.len() {
-        if pre[i] != full[i] {
-            return false;
-        }
-    }
-    true
+    pre.len() <= full.len() && pre.iter().zip(full.iter()).all(|(x, y)| x == y)
 }
 
 /// Is the first vector a postfix of the second?
 pub fn is_postfix<T: Eq>(post: &[T], full: &[T]) -> bool {
-    if post.len() > full.len() {
-        return false;
-    }
-    for i in 0..post.len() {
-        if post[i + full.len() - post.len()] != full[i] {
-            return false;
-        }
-    }
-    true
+    post.len() <= full.len()
+        && post
+            .iter()
+            .rev()
+            .zip(full.iter().rev())
+            .all(|(x, y)| x == y)
 }
