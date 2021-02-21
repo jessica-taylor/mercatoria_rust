@@ -197,7 +197,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
 
 async fn verify_well_formed_main_block_body<HL: HashLookup>(
     hl: &HL,
-    main: MainBlockBody,
+    main: &MainBlockBody,
 ) -> Result<(), anyhow::Error> {
     let opts = hl.lookup(main.options).await?;
     if opts.timestamp_period_ms == 0 || main.timestamp_ms % (opts.timestamp_period_ms as i64) != 0 {
@@ -220,4 +220,28 @@ async fn verify_well_formed_main_block_body<HL: HashLookup>(
         }
     }
     Ok(())
+}
+
+pub async fn verify_valid_main_block_body<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+) -> Result<(), anyhow::Error> {
+    verify_well_formed_main_block_body(hl, main).await?;
+    let top = hl.lookup(main.tree).await?;
+    if top.body.path.len() != 0 {
+        bail!("top quorum node must have empty path");
+    }
+    match main.prev {
+        None => Ok(()),
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            if main.options != prev.block.body.options {
+                bail!("options must not change");
+            }
+            if main.tree != prev.block.body.tree {
+                verify_endorsed_quorum_node(hl, &prev, &top).await?;
+            }
+            Ok(())
+        }
+    }
 }
