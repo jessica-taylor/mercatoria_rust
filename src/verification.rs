@@ -1,26 +1,19 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    future::Future,
-    pin::Pin,
-};
+use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::pin::Pin;
 
-use anyhow::{anyhow, bail};
 use futures_lite::{future, FutureExt};
+use anyhow::{anyhow, bail};
 
-use crate::{
-    account_construction::{add_action_to_account, children_paths_well_formed},
-    queries::{longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block},
+use crate::account_construction::{add_action_to_account, children_paths_well_formed};
+use crate::blockdata::{
+    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixHashNode
 };
+use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
+use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
+use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
+use crate::queries::{longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
-use mercatoria_types::{
-    blockdata::{
-        Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
-        QuorumNodeStats, RadixHashNode,
-    },
-    crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode},
-    hashlookup::{HashLookup, HashPut, HashPutOfHashLookup},
-    hex_path::{bytes_to_path, is_prefix, HexPath},
-};
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
 async fn quorum_node_body_score<HL: HashLookup>(
@@ -86,7 +79,7 @@ async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
 pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
-    node: &QuorumNode,
+    node: &QuorumNode
 ) -> Result<(), anyhow::Error> {
     verify_well_formed_quorum_node_body(hl, last_main, &node.body).await?;
     match node.signatures {
@@ -108,8 +101,7 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
             if signers.len() != sigs.len() {
                 bail!("duplicate signature keys");
             }
-            let quorums =
-                quorums_by_prev_block(hl, &last_main.block.body, node.body.path.clone()).await?;
+            let quorums = quorums_by_prev_block(hl, &last_main.block.body, node.body.path.clone()).await?;
             let mut satisfied = false;
             'outer: for (quorum, threshold) in quorums {
                 if sigs.len() as u32 >= threshold {
@@ -137,7 +129,7 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
 fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     hl: &'a HL,
     last_main: &'a MainBlock,
-    qnb: &'a QuorumNodeBody,
+    qnb: &'a QuorumNodeBody
 ) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + Send + 'a>> {
     async move {
         verify_well_formed_quorum_node_body(hl, last_main, qnb).await?;
@@ -146,7 +138,8 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
             let account = path_to_hash_code(qnb.path.clone());
             let action = hl
                 .lookup(
-                    qnb.new_action
+                    qnb
+                        .new_action
                         .ok_or(anyhow!("new account node must have an action"))?,
                 )
                 .await?;
@@ -176,27 +169,17 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
             // check that new children are endorsed
             for (child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
-                if Some((child.clone(), vec![]))
-                    != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await?
-                {
+                if Some((child.clone(), vec![])) != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await? {
                     verify_endorsed_quorum_node(hl, last_main, &child).await?;
                 }
             }
             // check child paths and stats
-            let qn = QuorumNode {
-                body: qnb.clone(),
-                signatures: None,
-            };
-            if qn
-                != qn
-                    .clone()
-                    .replace_children(hl, qnb.children.clone())
-                    .await?
-            {
+            let qn = QuorumNode {body: qnb.clone(), signatures: None};
+            if qn != qn.clone().replace_children(hl, qnb.children.clone()).await? {
                 bail!("quorum node is not expected based on its children");
             }
         }
         Ok(())
-    }
-    .boxed()
+    }.boxed()
 }
+

@@ -3,20 +3,17 @@ use std::{collections::BTreeMap, future::Future, pin::Pin};
 use anyhow::*;
 use futures_lite::{future, FutureExt};
 
-use crate::{
-    account_transform::{
-        field_balance, field_public_key, field_received, field_send, field_stake, run_action,
-        AccountTransform,
-    },
-    queries::{longest_prefix_length, lookup_account},
+use crate::account_transform::{
+    field_balance, field_public_key, field_received, field_send, field_stake, run_action,
+    AccountTransform,
 };
-
-use mercatoria_types::{
-    blockdata::{Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixHashNode},
-    crypto::{hash, Hash, HashCode},
-    hashlookup::{HashLookup, HashPut},
-    hex_path::{bytes_to_path, is_prefix, HexPath},
+use crate::blockdata::{
+    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixHashNode
 };
+use crate::crypto::{hash, Hash, HashCode};
+use crate::hashlookup::{HashLookup, HashPut};
+use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
+use crate::queries::{longest_prefix_length, lookup_account};
 
 /// Checks whether a radix hash node's children are well-formed.
 pub fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
@@ -33,6 +30,7 @@ pub fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
 fn data_node_well_formed(dn: &DataNode) -> bool {
     children_paths_well_formed(&dn.children) && !(dn.children.len() <= 1 && dn.field.is_none())
 }
+
 
 /// Inserts a child into a list of radix hash children, replacing a child
 /// with the same first character if one exists.
@@ -60,17 +58,11 @@ async fn rh_node_insert_child<HL: HashLookup + HashPut, N: RadixHashNode>(
 ) -> Result<Hash<N>, anyhow::Error> {
     let new_children = insert_child(child, tree.get_children().clone());
     *node_count += 1;
-    hl.put(&tree.replace_children(hl, new_children).await?)
-        .await
+    hl.put(&tree.replace_children(hl, new_children).await?).await
 }
 
 /// Inserts a field at a given path in a radix hash tree.
-fn insert_into_rh_tree<
-    'a,
-    HL: HashLookup + HashPut,
-    N: 'a + RadixHashNode,
-    GN: 'a + Send + Sized + FnOnce(Option<N>) -> N,
->(
+fn insert_into_rh_tree<'a, HL: HashLookup + HashPut, N: 'a + RadixHashNode, GN: 'a + Send + Sized + FnOnce(Option<N>) -> N>(
     hl: &'a mut HL,
     node_count: &'a mut usize,
     path: HexPath,
@@ -108,14 +100,7 @@ fn insert_into_rh_tree<
                         let pref_len = longest_prefix_length(&path, &suffix);
                         *node_count += 1;
                         let mut new_child_hash = hl
-                            .put(
-                                &N::from_single_child(
-                                    hl,
-                                    (suffix[pref_len..].to_vec(), child_hash),
-                                )
-                                .await?,
-                            )
-                            .await?;
+                            .put(&N::from_single_child(hl, (suffix[pref_len..].to_vec(), child_hash)).await?).await?;
                         // modify the intermediate node
                         new_child_hash = insert_into_rh_tree(
                             hl,
@@ -153,10 +138,7 @@ async fn insert_into_data_tree<'a, HL: HashLookup + HashPut>(
     hash_tree: Hash<DataNode>,
 ) -> Result<Hash<DataNode>, anyhow::Error> {
     let replace = |option_node: Option<DataNode>| match option_node {
-        None => DataNode {
-            field: Some(field),
-            children: vec![],
-        },
+        None => DataNode {field: Some(field), children: vec![]},
         Some(mut n) => {
             n.field = Some(field);
             n
@@ -208,7 +190,7 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
             gas: 0,
             stake: stake,
             prize: 0,
-        },
+        }
     };
     Ok((fields, node))
 }
@@ -258,6 +240,6 @@ pub async fn add_action_to_account<HL: HashLookup + HashPut>(
             gas: 0,
             stake: new_stake,
             prize: prize,
-        },
+        }
     })
 }

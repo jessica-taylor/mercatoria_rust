@@ -1,24 +1,19 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    future::Future,
-    pin::Pin,
-};
 
-use anyhow::{anyhow, bail};
+use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::pin::Pin;
+
 use futures_lite::{future, FutureExt};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use anyhow::{anyhow, bail};
 
 use crate::account_construction::{add_action_to_account, children_paths_well_formed};
 use crate::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
-    QuorumNodeStats,
+    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, QuorumNodeStats
 };
-use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
+use crate::crypto::{hash, path_to_hash_code, Hash, HashCode, verify_sig};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
-use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
-use crate::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
-};
+use crate::hex_path::{bytes_to_path, HexPath, is_prefix};
+use crate::queries::{longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block};
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
@@ -56,11 +51,13 @@ async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     // }
 }
 
+
+
 pub fn new_quorum_node_body<HL: HashLookup + HashPut>(
     hl: &mut HL,
     last_main: &MainBlock,
     path: HexPath,
-    possible_children: &Vec<Hash<QuorumNode>>,
+    possible_children: &Vec<Hash<QuorumNode>>
 ) -> Result<Option<QuorumNodeBody>, anyhow::Error> {
     bail!("not implemented");
 }
