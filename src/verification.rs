@@ -205,6 +205,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
     .boxed()
 }
 
+/// Verifies that a `MainBlockBody` is well-formed.
 async fn verify_well_formed_main_block_body<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
@@ -232,6 +233,7 @@ async fn verify_well_formed_main_block_body<HL: HashLookup>(
     Ok(())
 }
 
+/// Verifies that a `MainBlockBody` is valid.
 pub async fn verify_valid_main_block_body<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
@@ -256,6 +258,8 @@ pub async fn verify_valid_main_block_body<HL: HashLookup>(
     }
 }
 
+/// Verifies that a `PreSignedMainBlock` is endorsed, i.e. is well-formed and contains enough valid
+/// signatures.
 pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
     hl: &HL,
     main: &PreSignedMainBlock,
@@ -282,6 +286,8 @@ pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
     }
 }
 
+/// Verifies that a `MainBlock` is endorsed, i.e. is well-formed and contains enough valid
+/// signatures.
 pub async fn verify_endorsed_main_block<HL: HashLookup>(
     hl: &HL,
     main: &MainBlock,
@@ -301,6 +307,7 @@ pub async fn verify_endorsed_main_block<HL: HashLookup>(
     }
 }
 
+/// Verifies that a `MainBlock` is valid and endorsed.
 pub async fn verify_valid_endorsed_main_block<HL: HashLookup>(
     hl: &HL,
     main: &MainBlock,
