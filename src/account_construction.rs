@@ -62,11 +62,11 @@ async fn rh_node_insert_child<HL: HashLookup + HashPut, N: RadixHashNode>(
 }
 
 /// Inserts a field at a given path in a radix hash tree.
-fn insert_into_rh_tree<
+pub fn insert_into_rh_tree<
     'a,
     HL: HashLookup + HashPut,
     N: 'a + RadixHashNode,
-    GN: 'a + Send + Sized + FnOnce(Option<N>) -> N,
+    GN: 'a + Send + Sized + FnOnce(Option<N>) -> Result<N, anyhow::Error>,
 >(
     hl: &'a mut HL,
     node_count: &'a mut usize,
@@ -79,7 +79,7 @@ fn insert_into_rh_tree<
         if path.len() == 0 {
             // just replace the node
             *node_count += 1;
-            return hl.put(&get_new_node(Some(tree))).await;
+            return hl.put(&get_new_node(Some(tree))?).await;
         } else {
             for (suffix, child_hash) in tree.get_children().clone() {
                 if suffix[0] == path[0] {
@@ -134,7 +134,7 @@ fn insert_into_rh_tree<
             }
             // insert a new child that itself has no children
             *node_count += 1;
-            let node_hash = hl.put(&get_new_node(None)).await?;
+            let node_hash = hl.put(&get_new_node(None)?).await?;
             return rh_node_insert_child(hl, node_count, (path, node_hash), tree).await;
         }
     }
@@ -150,13 +150,13 @@ async fn insert_into_data_tree<'a, HL: HashLookup + HashPut>(
     hash_tree: Hash<DataNode>,
 ) -> Result<Hash<DataNode>, anyhow::Error> {
     let replace = |option_node: Option<DataNode>| match option_node {
-        None => DataNode {
+        None => Ok(DataNode {
             field: Some(field),
             children: vec![],
-        },
+        }),
         Some(mut n) => {
             n.field = Some(field);
-            n
+            Ok(n)
         }
     };
     insert_into_rh_tree(hl, node_count, path, replace, hash_tree).await
