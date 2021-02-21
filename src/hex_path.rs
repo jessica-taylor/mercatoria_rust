@@ -38,8 +38,8 @@ pub fn is_postfix<T: Eq>(post: &[T], full: &[T]) -> bool {
     if post.len() > full.len() {
         return false;
     }
-    for i in 0..pre.len() {
-        if pre[i + full.len() - post.len()] != full[i] {
+    for i in 0..post.len() {
+        if post[i + full.len() - post.len()] != full[i] {
             return false;
         }
     }
