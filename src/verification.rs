@@ -266,7 +266,7 @@ pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
             let prev = hl.lookup(prev_hash).await?;
             verify_well_formed_main_block_body(hl, &main.body).await?;
             let mut signers = signatures_to_signers(&main.signatures, &main.body)?;
-            let (miner, needed_signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
+            let (_miner, needed_signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
             let mut count = 0;
             for signer in needed_signers {
                 if signers.contains(&signer) {
@@ -276,6 +276,25 @@ pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
             let opts = hl.lookup(main.body.options).await?;
             if count < opts.main_block_signatures_required {
                 bail!("not enough main signatures");
+            }
+            Ok(())
+        }
+    }
+}
+
+pub async fn verify_endorsed_main_block<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlock,
+) -> Result<(), anyhow::Error> {
+    match main.block.body.prev {
+        None => bail!("genesis block is never endorsed"),
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            verify_endorsed_pre_signed_main_block(hl, &main.block);
+            let mut signers = signatures_to_signers(&vec![main.signature.clone()], &main.block)?;
+            let (miner, _signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
+            if !signers.contains(&miner) {
+                bail!("main must be signed by miner");
             }
             Ok(())
         }
