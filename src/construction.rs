@@ -18,6 +18,7 @@ use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
 use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
+use crate::verification::quorum_node_body_score;
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,

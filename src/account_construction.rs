@@ -61,7 +61,7 @@ async fn rh_node_insert_child<HL: HashLookup + HashPut, N: RadixHashNode>(
         .await
 }
 
-/// Inserts a field at a given path in a radix hash tree.
+/// Modifies a node at a given path in a radix hash tree.
 pub fn insert_into_rh_tree<
     'a,
     HL: HashLookup + HashPut,

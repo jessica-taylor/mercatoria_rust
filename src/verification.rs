@@ -18,7 +18,7 @@ use crate::queries::{
 };
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
-async fn quorum_node_body_score<HL: HashLookup>(
+pub async fn quorum_node_body_score<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
     qnb: &QuorumNodeBody,
@@ -126,7 +126,6 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
     Ok(())
 }
 
-// TODO: consider replacing this with construction
 /// Verifies that a quorum node is valid, in the sense that it
 /// follows correctly from the old node and the new children.
 fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
@@ -194,4 +193,31 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
         Ok(())
     }
     .boxed()
+}
+
+async fn verify_well_formed_main_block_body<HL: HashLookup>(
+    hl: &HL,
+    main: MainBlockBody,
+) -> Result<(), anyhow::Error> {
+    let opts = hl.lookup(main.options).await?;
+    if opts.timestamp_period_ms == 0 || main.timestamp_ms % (opts.timestamp_period_ms as i64) != 0 {
+        bail!("main must have timestamp that is 0 mod timestamp_period_ms");
+    }
+    match main.prev {
+        None => {
+            if main.version != 0 {
+                bail!("genesis block must have version 0");
+            }
+        }
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            if main.version != prev.block.body.version + 1 {
+                bail!("main must advance version by 1");
+            }
+            if main.timestamp_ms <= prev.block.body.timestamp_ms {
+                bail!("main must advance timestamp");
+            }
+        }
+    }
+    Ok(())
 }
