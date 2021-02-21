@@ -4,9 +4,7 @@ use anyhow::bail;
 use async_trait::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::blockdata::{
-    Action, MainBlock, SendInfo,
-};
+use crate::blockdata::{Action, MainBlock, SendInfo};
 use crate::crypto::{hash, verify_sig, Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
