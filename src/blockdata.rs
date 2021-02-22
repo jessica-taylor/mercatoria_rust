@@ -200,7 +200,7 @@ impl RadixHashNode for DataNode {
 
     async fn replace_children<HL: HashLookup>(
         mut self,
-        hl: &HL,
+        _hl: &HL,
         new_children: Vec<(HexPath, Hash<DataNode>)>,
     ) -> Result<DataNode, anyhow::Error> {
         self.children = new_children;
@@ -208,7 +208,7 @@ impl RadixHashNode for DataNode {
     }
 
     async fn from_single_child<HL: HashLookup>(
-        hl: &HL,
+        _hl: &HL,
         child: (HexPath, Hash<DataNode>),
     ) -> Result<DataNode, anyhow::Error> {
         Ok(DataNode {

@@ -4,21 +4,23 @@ use std::pin::Pin;
 
 use anyhow::{anyhow, bail};
 use futures_lite::{future, FutureExt};
+use serde::Serialize;
 
 use crate::account_construction::{add_action_to_account, children_paths_well_formed};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats, RadixHashNode,
 };
-use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
+use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode, Signature};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
 use crate::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
+    longest_prefix_length, lookup_account, lookup_quorum_node, miner_and_signers_by_prev_block,
+    quorums_by_prev_block,
 };
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
-async fn quorum_node_body_score<HL: HashLookup>(
+pub async fn quorum_node_body_score<HL: HashLookup>(
     hl: &HL,
     last_main: &MainBlock,
     qnb: &QuorumNodeBody,
@@ -76,6 +78,23 @@ async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
     Ok(())
 }
 
+fn signatures_to_signers<T: Serialize>(
+    sigs: &Vec<Signature<T>>,
+    signed: &T,
+) -> Result<BTreeSet<HashCode>, anyhow::Error> {
+    let mut signers = BTreeSet::<HashCode>::new();
+    for sig in sigs {
+        if !verify_sig(signed, &sig) {
+            bail!("signature invalid");
+        }
+        signers.insert(hash(&sig.key).code);
+    }
+    if signers.len() != sigs.len() {
+        bail!("duplicate signature keys");
+    }
+    Ok(signers)
+}
+
 /// Verifies that a quorum node is endorsed (i.e. either has enough
 /// signatures or has no signatures but is valid).
 pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
@@ -93,16 +112,7 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
         }
         Some(sigs_hash) => {
             let sigs = hl.lookup(sigs_hash).await?;
-            let mut signers = BTreeSet::<HashCode>::new();
-            for sig in &sigs {
-                if !verify_sig(&node.body, &sig) {
-                    bail!("quorum node signature invalid");
-                }
-                signers.insert(hash(&sig.key).code);
-            }
-            if signers.len() != sigs.len() {
-                bail!("duplicate signature keys");
-            }
+            let signers = signatures_to_signers(&sigs, &node.body)?;
             let quorums =
                 quorums_by_prev_block(hl, &last_main.block.body, node.body.path.clone()).await?;
             let mut satisfied = false;
@@ -126,7 +136,6 @@ pub async fn verify_endorsed_quorum_node<HL: HashLookup>(
     Ok(())
 }
 
-// TODO: consider replacing this with construction
 /// Verifies that a quorum node is valid, in the sense that it
 /// follows correctly from the old node and the new children.
 fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
@@ -169,7 +178,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                 }
             }
             // check that new children are endorsed
-            for (child_suffix, child_hash) in &qnb.children {
+            for (_child_suffix, child_hash) in &qnb.children {
                 let child = hl.lookup(*child_hash).await?;
                 if Some((child.clone(), vec![]))
                     != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await?
@@ -194,4 +203,116 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
         Ok(())
     }
     .boxed()
+}
+
+/// Verifies that a `MainBlockBody` is well-formed.
+async fn verify_well_formed_main_block_body<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+) -> Result<(), anyhow::Error> {
+    let opts = hl.lookup(main.options).await?;
+    if opts.timestamp_period_ms == 0 || main.timestamp_ms % (opts.timestamp_period_ms as i64) != 0 {
+        bail!("main must have timestamp that is 0 mod timestamp_period_ms");
+    }
+    match main.prev {
+        None => {
+            if main.version != 0 {
+                bail!("genesis block must have version 0");
+            }
+        }
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            if main.version != prev.block.body.version + 1 {
+                bail!("main must advance version by 1");
+            }
+            if main.timestamp_ms <= prev.block.body.timestamp_ms {
+                bail!("main must advance timestamp");
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Verifies that a `MainBlockBody` is valid.
+pub async fn verify_valid_main_block_body<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlockBody,
+) -> Result<(), anyhow::Error> {
+    verify_well_formed_main_block_body(hl, main).await?;
+    let top = hl.lookup(main.tree).await?;
+    if top.body.path.len() != 0 {
+        bail!("top quorum node must have empty path");
+    }
+    match main.prev {
+        None => Ok(()),
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            if main.options != prev.block.body.options {
+                bail!("options must not change");
+            }
+            if main.tree != prev.block.body.tree {
+                verify_endorsed_quorum_node(hl, &prev, &top).await?;
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Verifies that a `PreSignedMainBlock` is endorsed, i.e. is well-formed and contains enough valid
+/// signatures.
+pub async fn verify_endorsed_pre_signed_main_block<HL: HashLookup>(
+    hl: &HL,
+    main: &PreSignedMainBlock,
+) -> Result<(), anyhow::Error> {
+    match main.body.prev {
+        None => bail!("genesis block is never endorsed"),
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            verify_well_formed_main_block_body(hl, &main.body).await?;
+            let signers = signatures_to_signers(&main.signatures, &main.body)?;
+            let (_miner, needed_signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
+            let mut count = 0;
+            for signer in needed_signers {
+                if signers.contains(&signer) {
+                    count += 1;
+                }
+            }
+            let opts = hl.lookup(main.body.options).await?;
+            if count < opts.main_block_signatures_required {
+                bail!("not enough main signatures");
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Verifies that a `MainBlock` is endorsed, i.e. is well-formed and contains enough valid
+/// signatures.
+pub async fn verify_endorsed_main_block<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlock,
+) -> Result<(), anyhow::Error> {
+    match main.block.body.prev {
+        None => bail!("genesis block is never endorsed"),
+        Some(prev_hash) => {
+            let prev = hl.lookup(prev_hash).await?;
+            verify_endorsed_pre_signed_main_block(hl, &main.block).await?;
+            let signers = signatures_to_signers(&vec![main.signature.clone()], &main.block)?;
+            let (miner, _signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
+            if !signers.contains(&miner) {
+                bail!("main must be signed by miner");
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Verifies that a `MainBlock` is valid and endorsed.
+pub async fn verify_valid_endorsed_main_block<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlock,
+) -> Result<(), anyhow::Error> {
+    verify_valid_main_block_body(hl, &main.block.body).await?;
+    verify_endorsed_main_block(hl, main).await?;
+    Ok(())
 }
