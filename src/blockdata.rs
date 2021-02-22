@@ -2,11 +2,39 @@ use crate::crypto::{Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{is_postfix, HexPath};
 
+use anyhow::{anyhow, bail};
+use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use async_trait::async_trait;
+use std::{collections::BTreeMap, marker::PhantomData};
 
-use anyhow::bail;
+#[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
+pub struct RadixChildren<T>(pub [Option<(HexPath, T)>; 16]);
+
+pub type RadixHashChildren<T> = RadixChildren<Hash<T>>;
+
+impl<T> Default for RadixChildren<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<T> RadixChildren<T> {
+    fn from_single_child(mut prefix: HexPath, hash: T) -> Option<Self> {
+        let mut out = Self::default();
+        let c = prefix.drain(0..1).next()?.value as usize;
+        out.0[c] = Some((prefix, hash));
+        Some(out)
+    }
+
+    pub fn iter_entries(&'_ self) -> impl Iterator<Item = &'_ (HexPath, T)> + '_ {
+        self.0.iter().flat_map(|x| x.as_ref())
+    }
+
+    pub fn len(&self) -> usize {
+        self.iter_entries().count()
+    }
+}
 
 /// A node in a radix hash tree.
 #[async_trait]
@@ -14,13 +42,13 @@ pub trait RadixHashNode:
     Sized + DeserializeOwned + Clone + Send + Serialize + DeserializeOwned + Sync
 {
     /// Gets the children of the node.
-    fn get_children(&self) -> &Vec<(HexPath, Hash<Self>)>;
+    fn get_children(&self) -> &RadixHashChildren<Self>;
 
     /// Replaces the children of the node.
     async fn replace_children<HL: HashLookup>(
         self,
         hl: &HL,
-        new_children: Vec<(HexPath, Hash<Self>)>,
+        new_children: RadixHashChildren<Self>,
     ) -> Result<Self, anyhow::Error>;
 
     /// Creates a node with a single child.
@@ -114,7 +142,7 @@ impl QuorumNodeStats {
 pub struct QuorumNodeBody {
     pub last_main: Option<Hash<MainBlock>>,
     pub path: HexPath,
-    pub children: Vec<(HexPath, Hash<QuorumNode>)>,
+    pub children: RadixHashChildren<QuorumNode>,
     pub data_tree: Option<Hash<DataNode>>,
     pub new_action: Option<Hash<Action>>,
     pub prize: u128,
@@ -130,21 +158,21 @@ pub struct QuorumNode {
 
 #[async_trait]
 impl RadixHashNode for QuorumNode {
-    fn get_children(&self) -> &Vec<(HexPath, Hash<QuorumNode>)> {
+    fn get_children(&self) -> &RadixHashChildren<Self> {
         &self.body.children
     }
 
     async fn replace_children<HL: HashLookup>(
         mut self,
         hl: &HL,
-        new_children: Vec<(HexPath, Hash<QuorumNode>)>,
+        new_children: RadixHashChildren<Self>,
     ) -> Result<QuorumNode, anyhow::Error> {
         self.body.children = new_children;
         self.signatures = None;
         self.body.stats = QuorumNodeStats::zero();
         self.body.stats.prize = self.body.prize;
         self.body.stats.new_nodes = 1;
-        for (suffix, hash_child) in &self.body.children {
+        for (suffix, hash_child) in self.body.children.0.iter().filter_map(|x| x.as_ref()) {
             let child = hl.lookup(*hash_child).await?;
             if child.body.path != [&self.body.path[..], &suffix[..]].concat() {
                 bail!("quorum child node has wrong path");
@@ -175,7 +203,8 @@ impl RadixHashNode for QuorumNode {
             body: QuorumNodeBody {
                 last_main: child_node.body.last_main,
                 path: child_node.body.path[..child_node.body.path.len() - child.0.len()].to_vec(),
-                children: vec![child],
+                children: RadixHashChildren::from_single_child(child.0, child.1)
+                    .ok_or_else(|| anyhow!("child hex path must not be empty"))?,
                 data_tree: None,
                 new_action: None,
                 prize: 0,
@@ -189,19 +218,19 @@ impl RadixHashNode for QuorumNode {
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct DataNode {
     pub field: Option<Vec<u8>>,
-    pub children: Vec<(HexPath, Hash<DataNode>)>,
+    pub children: RadixHashChildren<DataNode>,
 }
 
 #[async_trait]
 impl RadixHashNode for DataNode {
-    fn get_children(&self) -> &Vec<(HexPath, Hash<DataNode>)> {
+    fn get_children(&self) -> &RadixHashChildren<Self> {
         &self.children
     }
 
     async fn replace_children<HL: HashLookup>(
         mut self,
         _hl: &HL,
-        new_children: Vec<(HexPath, Hash<DataNode>)>,
+        new_children: RadixHashChildren<Self>,
     ) -> Result<DataNode, anyhow::Error> {
         self.children = new_children;
         Ok(self)
@@ -209,11 +238,14 @@ impl RadixHashNode for DataNode {
 
     async fn from_single_child<HL: HashLookup>(
         _hl: &HL,
-        child: (HexPath, Hash<DataNode>),
+        mut child: (HexPath, Hash<DataNode>),
     ) -> Result<DataNode, anyhow::Error> {
+        let children = RadixHashChildren::from_single_child(child.0, child.1)
+            .ok_or_else(|| anyhow!("child hex path must not be empty"))?;
+
         Ok(DataNode {
             field: None,
-            children: vec![child],
+            children,
         })
     }
 }

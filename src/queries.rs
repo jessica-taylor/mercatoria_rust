@@ -3,49 +3,49 @@ use std::cmp::min;
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
-use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
+use crate::hex_path::{bytes_to_path, is_prefix, u4, HexPath};
 
 use anyhow::{anyhow, bail};
 use serde::de::DeserializeOwned;
 
 /// What is the length of the longest common prefix between two vectors?
-pub fn longest_prefix_length<T: Eq>(xs: &Vec<T>, ys: &Vec<T>) -> usize {
-    for i in 0..min(xs.len(), ys.len()) {
-        if xs[i] != ys[i] {
-            return i;
-        }
-    }
-    min(xs.len(), ys.len())
+pub fn longest_prefix_length<T: Eq>(xs: &[T], ys: &[T]) -> usize {
+    xs.iter().zip(ys.iter()).take_while(|(x, y)| x == y).count()
 }
 
 /// Follows a path in a radix hash tree.
 pub async fn rh_follow_path<HL: HashLookup, N: RadixHashNode>(
     hl: &HL,
-    init_node: N,
-    path: &HexPath,
+    mut node: N,
+    mut path: &[u4],
 ) -> Result<Option<(N, HexPath)>, anyhow::Error> {
-    let mut path_ix = 0;
-    let mut prefix = HexPath::new();
-    let mut node = init_node;
-    while path_ix < path.len() {
-        prefix.push(path[path_ix]);
-        path_ix += 1;
-        let mut found = false;
-        for (postfix, child_hash) in node.get_children() {
-            if is_prefix(&prefix, &postfix) {
-                found = true;
-                if prefix == *postfix {
-                    node = hl.lookup(*child_hash).await?;
-                    prefix = HexPath::new();
-                    break;
-                }
-            }
+    loop {
+        if path.is_empty() {
+            break;
         }
-        if !found {
-            bail!("RH node not found");
+
+        let ix = path[0].value as usize;
+        let rest = &path[1..];
+        let children = node.get_children();
+
+        if children.0[ix].is_none() {
+            break;
+        }
+
+        let (prefix, child_hash) = children.0[ix].as_ref().unwrap();
+
+        if is_prefix(prefix, rest) {
+            path = &path[prefix.len()..];
+            node = hl.lookup(*child_hash).await?;
+            continue;
+        } else if is_prefix(rest, prefix) {
+            break;
+        } else {
+            return Ok(None);
         }
     }
-    Ok(Some((node, prefix)))
+
+    Ok(Some((node, path.to_owned())))
 }
 
 /// Follows a path starting from a `QuorumNode` going down.  Returns a node
@@ -175,8 +175,8 @@ async fn stake_indexed_account<HL: HashLookup>(
             return Ok(path_to_hash_code(path));
         }
         let mut children = Vec::new();
-        for (_, child_hash) in qn.body.children.clone() {
-            children.push(hl.lookup(child_hash).await?);
+        for (_, child_hash) in qn.body.children.iter_entries() {
+            children.push(hl.lookup(*child_hash).await?);
         }
         let child_stakes: Vec<u128> = children.iter().map(|ch| ch.body.stats.stake).collect();
         let mut sum_so_far = 0;

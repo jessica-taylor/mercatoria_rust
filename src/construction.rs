@@ -5,12 +5,10 @@ use std::pin::Pin;
 use anyhow::{anyhow, bail};
 use futures_lite::{future, FutureExt};
 
-use crate::account_construction::{
-    add_action_to_account, children_paths_well_formed, insert_into_rh_tree,
-};
+use crate::account_construction::{add_action_to_account, insert_into_rh_tree};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
-    QuorumNodeStats,
+    QuorumNodeStats, RadixChildren,
 };
 use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
@@ -41,14 +39,7 @@ async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
             Ok(child.clone())
         }
     };
-    insert_into_rh_tree(
-        hl,
-        &mut node_count,
-        child.body.path.clone(),
-        replace,
-        parent_hash,
-    )
-    .await
+    insert_into_rh_tree(hl, &mut node_count, &child.body.path, replace, parent_hash).await
 }
 
 pub async fn new_quorum_node_body<HL: HashLookup + HashPut>(
@@ -64,7 +55,7 @@ pub async fn new_quorum_node_body<HL: HashLookup + HashPut>(
             body: QuorumNodeBody {
                 last_main: None,
                 path: path.clone(),
-                children: vec![],
+                children: RadixChildren::default(),
                 data_tree: None,
                 new_action: None,
                 prize: 0,

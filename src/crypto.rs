@@ -12,7 +12,7 @@ pub type HashCode = [u8; 32];
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hash<T> {
     pub code: HashCode,
-    pub(crate) phantom: std::marker::PhantomData<T>,
+    pub(crate) phantom: std::marker::PhantomData<fn() -> T>,
 }
 
 impl<T> Clone for Hash<T> {

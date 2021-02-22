@@ -8,57 +8,39 @@ use crate::account_transform::{
     AccountTransform,
 };
 use crate::blockdata::{
-    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixHashNode,
+    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren, RadixHashChildren,
+    RadixHashNode,
 };
 use crate::crypto::{hash, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
-use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
+use crate::hex_path::{bytes_to_path, is_prefix, u4, HexPath};
 use crate::queries::{longest_prefix_length, lookup_account};
-
-/// Checks whether a radix hash node's children are well-formed.
-pub fn children_paths_well_formed<N>(children: &Vec<(HexPath, N)>) -> bool {
-    for i in 0..children.len() {
-        let (path, _) = &children[i];
-        if path.len() == 0 || (i > 0 && path[0] <= children[i - 1].0[0]) {
-            return false;
-        }
-    }
-    true
-}
 
 /// Checks whether a data node is well-formed.
 fn data_node_well_formed(dn: &DataNode) -> bool {
-    children_paths_well_formed(&dn.children) && !(dn.children.len() <= 1 && dn.field.is_none())
+    !(dn.children.len() <= 1 && dn.field.is_none())
 }
 
-/// Inserts a child into a list of radix hash children, replacing a child
-/// with the same first character if one exists.
-fn insert_child<N>(child: (HexPath, N), mut children: Vec<(HexPath, N)>) -> Vec<(HexPath, N)> {
-    for i in 0..children.len() {
-        if children[i].0[0] >= child.0[0] {
-            if children[i].0[0] == child.0[0] {
-                children[i] = child;
-            } else {
-                children.insert(i, child);
-            }
-            return children;
-        }
+impl<N> RadixChildren<N> {
+    /// Inserts a child into a list of radix hash children, replacing a child
+    /// with the same first character if one exists.
+    fn insert_child(&mut self, path: &[u4], node: N) -> Option<(HexPath, N)> {
+        self.0[path.get(0)?.value as usize].replace(((&path[1..]).to_owned(), node))
     }
-    children.push(child);
-    children
 }
 
 /// Modifies a `DataNode` to insert a new child.
 async fn rh_node_insert_child<HL: HashLookup + HashPut, N: RadixHashNode>(
     hl: &mut HL,
     node_count: &mut usize,
-    child: (HexPath, Hash<N>),
+    path: &[u4],
+    child: Hash<N>,
     tree: N,
 ) -> Result<Hash<N>, anyhow::Error> {
-    let new_children = insert_child(child, tree.get_children().clone());
+    let mut children = tree.get_children().to_owned();
+    children.insert_child(path, child);
     *node_count += 1;
-    hl.put(&tree.replace_children(hl, new_children).await?)
-        .await
+    hl.put(&tree.replace_children(hl, children).await?).await
 }
 
 /// Modifies a node at a given path in a radix hash tree.
@@ -70,7 +52,7 @@ pub fn insert_into_rh_tree<
 >(
     hl: &'a mut HL,
     node_count: &'a mut usize,
-    path: HexPath,
+    path: &'a [u4],
     get_new_node: GN,
     hash_tree: Hash<N>,
 ) -> Pin<Box<dyn Future<Output = Result<Hash<N>, anyhow::Error>> + Send + 'a>> {
@@ -80,62 +62,54 @@ pub fn insert_into_rh_tree<
             // just replace the node
             *node_count += 1;
             return hl.put(&get_new_node(Some(tree))?).await;
-        } else {
-            for (suffix, child_hash) in tree.get_children().clone() {
-                if suffix[0] == path[0] {
-                    if is_prefix(&suffix, &path) {
-                        // modify the child
-                        let new_child_hash = insert_into_rh_tree(
-                            hl,
-                            node_count,
-                            path[suffix.len()..].to_vec(),
-                            get_new_node,
-                            child_hash,
-                        )
-                        .await?;
-                        return rh_node_insert_child(
-                            hl,
-                            node_count,
-                            (suffix, new_child_hash),
-                            tree,
-                        )
-                        .await;
-                    } else {
-                        // create an intermediate node
-                        let pref_len = longest_prefix_length(&path, &suffix);
-                        *node_count += 1;
-                        let mut new_child_hash = hl
-                            .put(
-                                &N::from_single_child(
-                                    hl,
-                                    (suffix[pref_len..].to_vec(), child_hash),
-                                )
-                                .await?,
-                            )
-                            .await?;
-                        // modify the intermediate node
-                        new_child_hash = insert_into_rh_tree(
-                            hl,
-                            node_count,
-                            path[pref_len..].to_vec(),
-                            get_new_node,
-                            new_child_hash,
-                        )
-                        .await?;
-                        return rh_node_insert_child(
-                            hl,
-                            node_count,
-                            (path[0..pref_len].to_vec(), new_child_hash),
-                            tree,
-                        )
-                        .await;
-                    }
-                }
+        } else if let Some((suffix, child_hash)) =
+            tree.get_children().0[path[0].value as usize].clone()
+        {
+            let path = &path[1..];
+            if is_prefix(&suffix, path) {
+                // modify the child
+                let new_child_hash = insert_into_rh_tree(
+                    hl,
+                    node_count,
+                    &path[suffix.len()..],
+                    get_new_node,
+                    child_hash,
+                )
+                .await?;
+                return rh_node_insert_child(hl, node_count, &suffix, new_child_hash, tree).await;
+            } else {
+                // create an intermediate node
+                let pref_len = longest_prefix_length(path, &suffix);
+                *node_count += 1;
+                let mut new_child_hash = hl
+                    .put(
+                        &N::from_single_child(hl, (suffix[pref_len..].to_vec(), child_hash))
+                            .await?,
+                    )
+                    .await?;
+                // modify the intermediate node
+                new_child_hash = insert_into_rh_tree(
+                    hl,
+                    node_count,
+                    &path[pref_len..],
+                    get_new_node,
+                    new_child_hash,
+                )
+                .await?;
+                return rh_node_insert_child(
+                    hl,
+                    node_count,
+                    &path[0..pref_len],
+                    new_child_hash,
+                    tree,
+                )
+                .await;
             }
+        } else {
             // insert a new child that itself has no children
             *node_count += 1;
             let node_hash = hl.put(&get_new_node(None)?).await?;
-            return rh_node_insert_child(hl, node_count, (path, node_hash), tree).await;
+            return rh_node_insert_child(hl, node_count, path, node_hash, tree).await;
         }
     }
     .boxed()
@@ -145,14 +119,14 @@ pub fn insert_into_rh_tree<
 async fn insert_into_data_tree<'a, HL: HashLookup + HashPut>(
     hl: &'a mut HL,
     node_count: &'a mut usize,
-    path: HexPath,
+    path: &[u4],
     field: Vec<u8>,
     hash_tree: Hash<DataNode>,
 ) -> Result<Hash<DataNode>, anyhow::Error> {
     let replace = |option_node: Option<DataNode>| match option_node {
         None => Ok(DataNode {
             field: Some(field),
-            children: vec![],
+            children: RadixChildren::default(),
         }),
         Some(mut n) => {
             n.field = Some(field);
@@ -185,17 +159,17 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
     let mut data_tree: Hash<DataNode> = hl
         .put(&DataNode {
             field: None,
-            children: vec![],
+            children: RadixChildren::default(),
         })
         .await?;
     let mut node_count = 1;
     for (path, value) in fields.clone() {
-        data_tree = insert_into_data_tree(hl, &mut node_count, path, value, data_tree).await?;
+        data_tree = insert_into_data_tree(hl, &mut node_count, &path, value, data_tree).await?;
     }
     let node = QuorumNodeBody {
         last_main: last_main,
         path: bytes_to_path(&acct),
-        children: vec![],
+        children: RadixChildren::default(),
         data_tree: Some(data_tree),
         new_action: None,
         prize: 0,
@@ -223,7 +197,7 @@ pub async fn add_action_to_account<HL: HashLookup + HashPut>(
             true,
             hl.put(&DataNode {
                 field: None,
-                children: vec![],
+                children: RadixChildren::default(),
             })
             .await?,
         ),
@@ -240,12 +214,12 @@ pub async fn add_action_to_account<HL: HashLookup + HashPut>(
     let new_stake = at.get_data_field_or_error(account, &field_stake()).await?;
     let mut node_count = 0;
     for (path, value) in at.fields_set {
-        data_tree = insert_into_data_tree(hl, &mut node_count, path, value, data_tree).await?;
+        data_tree = insert_into_data_tree(hl, &mut node_count, &path, value, data_tree).await?;
     }
     Ok(QuorumNodeBody {
         last_main: Some(hash(last_main)),
         path: bytes_to_path(&account),
-        children: vec![],
+        children: RadixChildren::default(),
         data_tree: Some(data_tree),
         prize,
         new_action: Some(hl.put(action).await?),

@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail};
 use futures_lite::{future, FutureExt};
 use serde::Serialize;
 
-use crate::account_construction::{add_action_to_account, children_paths_well_formed};
+use crate::account_construction::add_action_to_account;
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats, RadixHashNode,
@@ -47,9 +47,6 @@ async fn verify_well_formed_quorum_node_body<HL: HashLookup>(
     let depth = qnb.path.len();
     if depth > 64 {
         bail!("quorum node depth is too high");
-    }
-    if !children_paths_well_formed(&qnb.children) {
-        bail!("quorum node children are malformed");
     }
     if depth > 0 && qnb.children.len() == 1 {
         bail!("non-root quorum node has only one child");
@@ -165,9 +162,9 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                 None => {}
                 Some((prev_node, suffix)) => {
                     // check that all old children are present
-                    'outer: for (prev_child_suffix, _) in &prev_node.body.children {
+                    'outer: for (prev_child_suffix, _) in prev_node.body.children.iter_entries() {
                         if is_prefix(&suffix, prev_child_suffix) {
-                            for (new_child_suffix, _) in &qnb.children {
+                            for (new_child_suffix, _) in qnb.children.iter_entries() {
                                 if is_prefix(new_child_suffix, &suffix[prev_child_suffix.len()..]) {
                                     continue 'outer;
                                 }
@@ -178,7 +175,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                 }
             }
             // check that new children are endorsed
-            for (_child_suffix, child_hash) in &qnb.children {
+            for (_child_suffix, child_hash) in qnb.children.iter_entries() {
                 let child = hl.lookup(*child_hash).await?;
                 if Some((child.clone(), vec![]))
                     != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await?
