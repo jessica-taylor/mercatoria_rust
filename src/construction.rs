@@ -1,11 +1,6 @@
+use anyhow::bail;
 
-
-
-
-use anyhow::{bail};
-
-
-use crate::account_construction::{insert_into_rh_tree};
+use crate::account_construction::insert_into_rh_tree;
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats, RadixChildren,
@@ -16,7 +11,7 @@ use crate::hex_path::{is_prefix, HexPath};
 use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
-use crate::verification::{verify_endorsed_quorum_node};
+use crate::verification::verify_endorsed_quorum_node;
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,

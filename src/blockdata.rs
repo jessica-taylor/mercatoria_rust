@@ -6,8 +6,6 @@ use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-
-
 #[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct RadixChildren<T>(pub [Option<(HexPath, T)>; 16]);
 

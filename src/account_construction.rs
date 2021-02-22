@@ -1,15 +1,13 @@
 use std::{collections::BTreeMap, future::Future, pin::Pin};
 
 use anyhow::*;
-use futures_lite::{FutureExt};
+use futures_lite::FutureExt;
 
 use crate::account_transform::{
-    field_balance, field_public_key, field_stake, run_action,
-    AccountTransform,
+    field_balance, field_public_key, field_stake, run_action, AccountTransform,
 };
 use crate::blockdata::{
-    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren,
-    RadixHashNode,
+    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren, RadixHashNode,
 };
 use crate::crypto::{hash, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};

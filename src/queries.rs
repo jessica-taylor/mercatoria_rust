@@ -1,12 +1,9 @@
-
-
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
 use crate::crypto::{hash, path_to_hash_code, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, is_prefix, u4, HexPath};
 
 use anyhow::{anyhow, bail};
-
 
 /// What is the length of the longest common prefix between two vectors?
 pub fn longest_prefix_length<T: Eq>(xs: &[T], ys: &[T]) -> usize {
