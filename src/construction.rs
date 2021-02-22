@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 use anyhow::bail;
 
 use crate::account_construction::insert_into_rh_tree;

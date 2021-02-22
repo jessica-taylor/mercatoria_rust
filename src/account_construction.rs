@@ -15,7 +15,7 @@ use crate::hex_path::{bytes_to_path, is_prefix, u4, HexPath};
 use crate::queries::{longest_prefix_length, lookup_account};
 
 /// Checks whether a data node is well-formed.
-fn data_node_well_formed(dn: &DataNode) -> bool {
+pub fn data_node_well_formed(dn: &DataNode) -> bool {
     !(dn.children.len() <= 1 && dn.field.is_none())
 }
 

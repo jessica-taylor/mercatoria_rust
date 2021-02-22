@@ -8,12 +8,11 @@ use serde::Serialize;
 
 use crate::account_construction::add_action_to_account;
 use crate::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
-    QuorumNodeStats, RadixHashNode,
+    MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody, RadixHashNode,
 };
 use crate::crypto::{hash, path_to_hash_code, verify_sig, HashCode, Signature};
 use crate::hashlookup::{HashLookup, HashPutOfHashLookup};
-use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
+use crate::hex_path::is_prefix;
 use crate::queries::{lookup_quorum_node, miner_and_signers_by_prev_block, quorums_by_prev_block};
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
