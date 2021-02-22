@@ -1,5 +1,3 @@
-#![allow(warnings)]
-
 pub mod hex_path;
 
 pub mod crypto;

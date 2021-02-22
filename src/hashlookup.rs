@@ -73,7 +73,7 @@ impl<'a, HL: HashLookup> HashPutOfHashLookup<'a, HL> {
     /// Creates a new `HashPutOfHashLookup` from an underlying `HashLookup`.
     pub fn new(hl: &'a HL) -> HashPutOfHashLookup<'a, HL> {
         HashPutOfHashLookup {
-            hl: hl,
+            hl,
             put_values: BTreeMap::new(),
         }
     }

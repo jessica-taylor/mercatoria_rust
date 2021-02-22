@@ -31,7 +31,7 @@ impl<T> TypedDataField<T> {
     /// Creates a `TypedDataField` given a path.
     pub fn from_path(path: HexPath) -> TypedDataField<T> {
         TypedDataField {
-            path: path,
+            path,
             phantom: PhantomData,
         }
     }

@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::{collections::BTreeMap, marker::PhantomData};
+
 
 #[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct RadixChildren<T>(pub [Option<(HexPath, T)>; 16]);
@@ -238,7 +238,7 @@ impl RadixHashNode for DataNode {
 
     async fn from_single_child<HL: HashLookup>(
         _hl: &HL,
-        mut child: (HexPath, Hash<DataNode>),
+        child: (HexPath, Hash<DataNode>),
     ) -> Result<DataNode, anyhow::Error> {
         let children = RadixHashChildren::from_single_child(child.0, child.1)
             .ok_or_else(|| anyhow!("child hex path must not be empty"))?;

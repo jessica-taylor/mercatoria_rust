@@ -1,26 +1,26 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::future::Future;
-use std::pin::Pin;
 
-use anyhow::{anyhow, bail};
-use futures_lite::{future, FutureExt};
 
-use crate::account_construction::{add_action_to_account, insert_into_rh_tree};
+
+
+use anyhow::{bail};
+
+
+use crate::account_construction::{insert_into_rh_tree};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats, RadixChildren,
 };
 use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
-use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
-use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
+use crate::hashlookup::{HashLookup, HashPut};
+use crate::hex_path::{is_prefix, HexPath};
 use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
-use crate::verification::{quorum_node_body_score, verify_endorsed_quorum_node};
+use crate::verification::{verify_endorsed_quorum_node};
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
-    last_main: Option<Hash<MainBlock>>,
+    _last_main: Option<Hash<MainBlock>>,
     child_hash: Hash<QuorumNode>,
     parent_hash: Hash<QuorumNode>,
 ) -> Result<Hash<QuorumNode>, anyhow::Error> {
@@ -48,8 +48,8 @@ pub async fn new_quorum_node_body<HL: HashLookup + HashPut>(
     path: HexPath,
     possible_children: &Vec<Hash<QuorumNode>>,
 ) -> Result<Option<QuorumNodeBody>, anyhow::Error> {
-    let initial = match lookup_quorum_node(hl, &last_main.block.body, &path).await? {
-        Some((old_node, suffix)) if suffix.len() == 0 => old_node,
+    let _initial = match lookup_quorum_node(hl, &last_main.block.body, &path).await? {
+        Some((old_node, suffix)) if suffix.is_empty() => old_node,
         _ => QuorumNode {
             signatures: None,
             body: QuorumNodeBody {

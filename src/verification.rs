@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeSet};
 use std::future::Future;
 use std::pin::Pin;
 
 use anyhow::{anyhow, bail};
-use futures_lite::{future, FutureExt};
+use futures_lite::{FutureExt};
 use serde::Serialize;
 
 use crate::account_construction::add_action_to_account;
@@ -11,11 +11,11 @@ use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
     QuorumNodeStats, RadixHashNode,
 };
-use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode, Signature};
-use crate::hashlookup::{HashLookup, HashPut, HashPutOfHashLookup};
+use crate::crypto::{hash, path_to_hash_code, verify_sig, HashCode, Signature};
+use crate::hashlookup::{HashLookup, HashPutOfHashLookup};
 use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
 use crate::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, miner_and_signers_by_prev_block,
+    lookup_quorum_node, miner_and_signers_by_prev_block,
     quorums_by_prev_block,
 };
 
@@ -237,7 +237,7 @@ pub async fn verify_valid_main_block_body<HL: HashLookup>(
 ) -> Result<(), anyhow::Error> {
     verify_well_formed_main_block_body(hl, main).await?;
     let top = hl.lookup(main.tree).await?;
-    if top.body.path.len() != 0 {
+    if !top.body.path.is_empty() {
         bail!("top quorum node must have empty path");
     }
     match main.prev {
@@ -294,7 +294,7 @@ pub async fn verify_endorsed_main_block<HL: HashLookup>(
         Some(prev_hash) => {
             let prev = hl.lookup(prev_hash).await?;
             verify_endorsed_pre_signed_main_block(hl, &main.block).await?;
-            let signers = signatures_to_signers(&vec![main.signature.clone()], &main.block)?;
+            let signers = signatures_to_signers(&vec![main.signature], &main.block)?;
             let (miner, _signers) = miner_and_signers_by_prev_block(hl, &prev).await?;
             if !signers.contains(&miner) {
                 bail!("main must be signed by miner");

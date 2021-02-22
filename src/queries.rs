@@ -1,12 +1,12 @@
-use std::cmp::min;
+
 
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
-use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
+use crate::crypto::{hash, path_to_hash_code, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, is_prefix, u4, HexPath};
 
 use anyhow::{anyhow, bail};
-use serde::de::DeserializeOwned;
+
 
 /// What is the length of the longest common prefix between two vectors?
 pub fn longest_prefix_length<T: Eq>(xs: &[T], ys: &[T]) -> usize {
@@ -77,7 +77,7 @@ pub async fn lookup_account<HL: HashLookup>(
     match lookup_quorum_node(hl, main, &bytes_to_path(&acct)).await? {
         None => Ok(None),
         Some((qn, postfix)) => {
-            if postfix.len() != 0 {
+            if !postfix.is_empty() {
                 Ok(None)
             } else {
                 Ok(Some(qn))
@@ -109,7 +109,7 @@ pub async fn lookup_data_in_account<HL: HashLookup>(
     match data_node_follow_path(hl, &top_dn, path).await? {
         None => Ok(None),
         Some((dn, postfix)) => {
-            if postfix.len() != 0 {
+            if !postfix.is_empty() {
                 Ok(None)
             } else {
                 Ok(dn.field)
@@ -137,7 +137,7 @@ pub async fn block_with_version<HL: HashLookup>(
         match &mb.prev {
             None => bail!("tried to get version before the first block"),
             Some(hash) => {
-                placeholder = hl.lookup(hash.clone()).await?.block.body;
+                placeholder = hl.lookup(*hash).await?.block.body;
                 mb = &placeholder;
             }
         }
@@ -203,7 +203,7 @@ pub async fn random_account<HL: HashLookup>(
     let rand_period = hl.lookup(main.options).await?.random_seed_period;
     let mut rounded = main.version / u64::from(rand_period) * u64::from(rand_period);
     if rounded > 0 {
-        rounded = rounded - u64::from(rand_period);
+        rounded -= u64::from(rand_period);
     }
     let stake_main = block_with_version(hl, main, rounded).await?;
     let top = hl.lookup(stake_main.tree).await?;
@@ -247,7 +247,7 @@ pub async fn quorums_by_prev_block<HL: HashLookup>(
     let period = hl.lookup(main.options).await?.quorum_period;
     let mut base_version = main.version / u64::from(period) * u64::from(period);
     if base_version > 0 {
-        base_version = base_version - u64::from(period);
+        base_version -= u64::from(period);
     }
     let rand_acct_main = block_with_version(hl, main, base_version).await?;
     let seed = random_seed_of_block(hl, &rand_acct_main).await?;

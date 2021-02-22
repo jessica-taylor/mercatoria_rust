@@ -1,14 +1,14 @@
 use std::{collections::BTreeMap, future::Future, pin::Pin};
 
 use anyhow::*;
-use futures_lite::{future, FutureExt};
+use futures_lite::{FutureExt};
 
 use crate::account_transform::{
-    field_balance, field_public_key, field_received, field_send, field_stake, run_action,
+    field_balance, field_public_key, field_stake, run_action,
     AccountTransform,
 };
 use crate::blockdata::{
-    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren, RadixHashChildren,
+    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren,
     RadixHashNode,
 };
 use crate::crypto::{hash, Hash, HashCode};
@@ -58,7 +58,7 @@ pub fn insert_into_rh_tree<
 ) -> Pin<Box<dyn Future<Output = Result<Hash<N>, anyhow::Error>> + Send + 'a>> {
     async move {
         let tree = hl.lookup(hash_tree).await?;
-        if path.len() == 0 {
+        if path.is_empty() {
             // just replace the node
             *node_count += 1;
             return hl.put(&get_new_node(Some(tree))?).await;
@@ -167,7 +167,7 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
         data_tree = insert_into_data_tree(hl, &mut node_count, &path, value, data_tree).await?;
     }
     let node = QuorumNodeBody {
-        last_main: last_main,
+        last_main,
         path: bytes_to_path(&acct),
         children: RadixChildren::default(),
         data_tree: Some(data_tree),
@@ -177,7 +177,7 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
             new_nodes: node_count as u64,
             fee: 0,
             gas: 0,
-            stake: stake,
+            stake,
             prize: 0,
         },
     };
@@ -228,7 +228,7 @@ pub async fn add_action_to_account<HL: HashLookup + HashPut>(
             fee: action.fee,
             gas: 0,
             stake: new_stake,
-            prize: prize,
+            prize,
         },
     })
 }
