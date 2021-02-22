@@ -1,5 +1,5 @@
 #!/usr/bin/bash
 
-cargo fmt --all -- --check
-cargo check -q
+cargo fmt -q -- --check
+cargo check -q --locked --offline --tests --benches --examples --bins --lib
 
