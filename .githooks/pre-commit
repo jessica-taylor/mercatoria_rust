@@ -1,4 +1,5 @@
 #!/usr/bin/bash
 
 cargo fmt --all -- --check
-cargo check
+cargo check -q
+
