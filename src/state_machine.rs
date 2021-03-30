@@ -4,8 +4,11 @@ use std::pin::Pin;
 
 use anyhow::bail;
 use futures_lite::FutureExt;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::account_transform::{field_balance, field_public_key, field_received, field_stake};
+use crate::account_transform::{
+    field_balance, field_public_key, field_received, field_stake, run_action, AccountTransform,
+};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
     QuorumNodeBody, QuorumNodeStats, RadixChildren, SendInfo,
@@ -18,6 +21,7 @@ use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
 
+#[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct AccountState {
     pub fields: BTreeMap<HexPath, Vec<u8>>,
 }
@@ -89,6 +93,7 @@ pub async fn get_account_state<HL: HashLookup>(
     Ok(state)
 }
 
+#[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct MainState {
     pub accounts: BTreeMap<HashCode, AccountState>,
 }
@@ -153,4 +158,27 @@ pub async fn genesis_state(inits: Vec<AccountInit>) -> MainState {
             .insert(hash(&init.public_key).code, acct_state);
     }
     state
+}
+
+pub async fn get_next_account_state<HL: HashLookup>(
+    hl: &HL,
+    last_main: Hash<MainBlock>,
+    this_account: HashCode,
+    action: &Action,
+    last_main_state: &MainState,
+) -> Option<AccountState> {
+    let (mut curr_state, is_init) = match last_main_state.accounts.get(&this_account) {
+        None => (AccountState::empty(), true),
+        Some(state) => ((*state).clone(), false),
+    };
+    let mut at = AccountTransform::new(hl, is_init, this_account, last_main);
+    match run_action(&mut at, action).await {
+        Ok(()) => {
+            for (field, val) in at.fields_set {
+                curr_state.fields.insert(field, val);
+            }
+            Some(curr_state)
+        }
+        Err(_) => None,
+    }
 }
