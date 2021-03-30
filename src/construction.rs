@@ -116,9 +116,9 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
 }
 
 pub struct AccountInit {
-    key: PublicKey,
-    balance: u128,
-    stake: u128,
+    pub key: PublicKey,
+    pub balance: u128,
+    pub stake: u128,
 }
 
 pub async fn genesis_block_body<HL: HashLookup + HashPut>(
