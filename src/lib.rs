@@ -15,3 +15,5 @@ pub mod account_construction;
 pub mod verification;
 
 pub mod construction;
+
+pub mod state_machine;
