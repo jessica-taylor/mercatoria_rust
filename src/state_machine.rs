@@ -1,12 +1,16 @@
 use std::collections::BTreeMap;
+use std::future::Future;
+use std::pin::Pin;
 
 use anyhow::bail;
+use futures_lite::FutureExt;
 
-use crate::account_transform::{field_balance, field_received, field_stake};
+use crate::account_transform::{field_balance, field_public_key, field_received, field_stake};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
     QuorumNodeBody, QuorumNodeStats, RadixChildren, SendInfo,
 };
+use crate::construction::AccountInit;
 use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
 use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
@@ -46,26 +50,34 @@ impl AccountState {
         rmp_serde::from_read::<_, u128>(self.fields.get(&field_balance().path).unwrap().as_slice())
             .unwrap()
     }
+
+    pub fn stake(&self) -> u128 {
+        rmp_serde::from_read::<_, u128>(self.fields.get(&field_stake().path).unwrap().as_slice())
+            .unwrap()
+    }
 }
 
-async fn add_data_tree_to_account_state<HL: HashLookup>(
-    hl: &HL,
+fn add_data_tree_to_account_state<'a, HL: HashLookup>(
+    hl: &'a HL,
     path: HexPath,
     node: Hash<DataNode>,
-    state: &mut AccountState,
-) -> Result<(), anyhow::Error> {
-    let node = hl.lookup(node).await?;
-    match node.field {
-        None => {}
-        Some(value) => {
-            state.fields.insert(path.clone(), value);
+    state: &'a mut AccountState,
+) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + Send + 'a>> {
+    async move {
+        let node = hl.lookup(node).await?;
+        match node.field {
+            None => {}
+            Some(value) => {
+                state.fields.insert(path.clone(), value);
+            }
         }
+        for (suffix, child) in node.children.iter_entries() {
+            let child_path = vec![path.clone(), suffix.clone()].concat();
+            add_data_tree_to_account_state(hl, child_path, *child, state).await?;
+        }
+        Ok(())
     }
-    for (suffix, child) in node.children.iter_entries() {
-        let child_path = vec![path.clone(), suffix.clone()].concat();
-        add_data_tree_to_account_state(hl, child_path, *child, state);
-    }
-    Ok(())
+    .boxed()
 }
 
 pub async fn get_account_state<HL: HashLookup>(
@@ -89,23 +101,26 @@ impl MainState {
     }
 }
 
-async fn get_account_states_under<HL: HashLookup>(
-    hl: &HL,
+fn get_account_states_under<'a, HL: HashLookup>(
+    hl: &'a HL,
     node_hash: Hash<QuorumNode>,
-    state: &mut MainState,
-) -> Result<(), anyhow::Error> {
-    let node = hl.lookup(node_hash).await?;
-    let depth = node.body.path.len();
-    if depth == 64 {
-        let acct = path_to_hash_code(node.body.path);
-        let acct_state = get_account_state(hl, node.body.data_tree.unwrap()).await?;
-        state.accounts.insert(acct, acct_state);
-    } else {
-        for (_, child) in node.body.children.iter_entries() {
-            get_account_states_under(hl, *child, state);
+    state: &'a mut MainState,
+) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + Send + 'a>> {
+    async move {
+        let node = hl.lookup(node_hash).await?;
+        let depth = node.body.path.len();
+        if depth == 64 {
+            let acct = path_to_hash_code(node.body.path);
+            let acct_state = get_account_state(hl, node.body.data_tree.unwrap()).await?;
+            state.accounts.insert(acct, acct_state);
+        } else {
+            for (_, child) in node.body.children.iter_entries() {
+                get_account_states_under(hl, *child, state).await?;
+            }
         }
+        Ok(())
     }
-    Ok(())
+    .boxed()
 }
 
 pub async fn get_chain_state<HL: HashLookup>(
@@ -113,6 +128,29 @@ pub async fn get_chain_state<HL: HashLookup>(
     main: &MainBlock,
 ) -> Result<MainState, anyhow::Error> {
     let mut state = MainState::empty();
-    get_account_states_under(hl, main.block.body.tree, &mut state);
+    get_account_states_under(hl, main.block.body.tree, &mut state).await?;
     Ok(state)
+}
+
+pub async fn genesis_state(inits: Vec<AccountInit>) -> MainState {
+    let mut state = MainState::empty();
+    for init in inits {
+        let mut acct_state = AccountState::empty();
+        acct_state.fields.insert(
+            field_public_key().path,
+            rmp_serde::to_vec_named(&init.public_key).unwrap(),
+        );
+        acct_state.fields.insert(
+            field_balance().path,
+            rmp_serde::to_vec_named(&init.balance).unwrap(),
+        );
+        acct_state.fields.insert(
+            field_stake().path,
+            rmp_serde::to_vec_named(&init.stake).unwrap(),
+        );
+        state
+            .accounts
+            .insert(hash(&init.public_key).code, acct_state);
+    }
+    state
 }

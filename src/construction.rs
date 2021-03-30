@@ -116,7 +116,7 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
 }
 
 pub struct AccountInit {
-    pub key: PublicKey,
+    pub public_key: PublicKey,
     pub balance: u128,
     pub stake: u128,
 }
@@ -145,7 +145,7 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
         .await?;
     for init in account_inits {
         let (_, acct_node_body) =
-            initialize_account_node(hl, None, init.key, init.balance, init.stake).await?;
+            initialize_account_node(hl, None, init.public_key, init.balance, init.stake).await?;
         let acct_node = hl
             .put(&QuorumNode {
                 body: acct_node_body,
