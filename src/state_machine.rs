@@ -80,3 +80,22 @@ pub async fn get_account_state<HL: HashLookup>(
 pub struct MainState {
     pub accounts: BTreeMap<HashCode, AccountState>,
 }
+
+async fn get_account_states_under<HL: HashLookup>(
+    hl: &HL,
+    node_hash: Hash<QuorumNode>,
+    state: &mut MainState,
+) -> Result<(), anyhow::Error> {
+    let node = hl.lookup(node_hash).await?;
+    let depth = node.body.path.len();
+    if depth == 64 {
+        let acct = path_to_hash_code(node.body.path);
+        let acct_state = get_account_state(hl, node.body.data_tree.unwrap()).await?;
+        state.accounts.insert(acct, acct_state);
+    } else {
+        for (_, child) in node.body.children.iter_entries() {
+            get_account_states_under(hl, *child, state);
+        }
+    }
+    Ok(())
+}
