@@ -3,11 +3,12 @@
 use std::collections::BTreeMap;
 
 use anyhow::bail;
+use ed25519_dalek::PublicKey;
 
-use crate::account_construction::insert_into_rh_tree;
+use crate::account_construction::{initialize_account_node, insert_into_rh_tree};
 use crate::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, PreSignedMainBlock, QuorumNode, QuorumNodeBody,
-    QuorumNodeStats, RadixChildren,
+    Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
+    QuorumNodeBody, QuorumNodeStats, RadixChildren,
 };
 use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
@@ -73,7 +74,7 @@ async fn make_immediate_parent<HL: HashLookup + HashPut>(
 }
 
 // TODO jack fixup
-async fn best_super_node<HL: HashLookup + HashPut>(
+pub async fn best_super_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
     last_main: &MainBlock,
     super_path: HexPath,
@@ -112,4 +113,52 @@ async fn best_super_node<HL: HashLookup + HashPut>(
         }
     }
     Ok((best.get(&super_path).unwrap().0.clone()))
+}
+
+pub struct AccountInit {
+    key: PublicKey,
+    balance: u128,
+    stake: u128,
+}
+
+pub async fn genesis_block_body<HL: HashLookup + HashPut>(
+    hl: &mut HL,
+    account_inits: Vec<AccountInit>,
+    timestamp_ms: i64,
+    opts: MainOptions,
+) -> Result<MainBlockBody, anyhow::Error> {
+    let mut stats = QuorumNodeStats::zero();
+    stats.new_nodes += 1;
+    let mut top = hl
+        .put(&QuorumNode {
+            body: QuorumNodeBody {
+                last_main: None,
+                path: vec![],
+                children: RadixChildren::default(),
+                data_tree: None,
+                new_action: None,
+                prize: 0,
+                stats,
+            },
+            signatures: None,
+        })
+        .await?;
+    for init in account_inits {
+        let (_, acct_node_body) =
+            initialize_account_node(hl, None, init.key, init.balance, init.stake).await?;
+        let acct_node = hl
+            .put(&QuorumNode {
+                body: acct_node_body,
+                signatures: None,
+            })
+            .await?;
+        top = add_child_to_quorum_node(hl, acct_node, top).await?;
+    }
+    Ok(MainBlockBody {
+        prev: None,
+        version: 0,
+        timestamp_ms,
+        tree: top,
+        options: hl.put(&opts).await?,
+    })
 }
