@@ -19,6 +19,12 @@ pub struct AccountState {
 }
 
 impl AccountState {
+    pub fn empty() -> AccountState {
+        AccountState {
+            fields: BTreeMap::new(),
+        }
+    }
+
     pub fn sends(&self) -> Vec<SendInfo> {
         let mut res = Vec::new();
         for (path, value) in &self.fields {
@@ -28,12 +34,14 @@ impl AccountState {
         }
         res
     }
+
     pub fn has_received(&self, send: &SendInfo) -> bool {
         match self.fields.get(&field_received(hash(send)).path) {
             None => false,
             Some(value) => rmp_serde::from_read::<_, bool>(value.as_slice()).unwrap(),
         }
     }
+
     pub fn balance(&self) -> u128 {
         rmp_serde::from_read::<_, u128>(self.fields.get(&field_balance().path).unwrap().as_slice())
             .unwrap()
@@ -58,6 +66,15 @@ async fn add_data_tree_to_account_state<HL: HashLookup>(
         add_data_tree_to_account_state(hl, child_path, *child, state);
     }
     Ok(())
+}
+
+pub async fn get_account_state<HL: HashLookup>(
+    hl: &HL,
+    node: Hash<DataNode>,
+) -> Result<AccountState, anyhow::Error> {
+    let mut state = AccountState::empty();
+    add_data_tree_to_account_state(hl, vec![], node, &mut state).await?;
+    Ok(state)
 }
 
 pub struct MainState {
