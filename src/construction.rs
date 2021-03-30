@@ -162,3 +162,32 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
         options: hl.put(&opts).await?,
     })
 }
+
+pub async fn next_main_block_body<HL: HashLookup>(
+    hl: &HL,
+    timestamp_ms: i64,
+    prev_hash: Hash<MainBlock>,
+    top_hash: Hash<QuorumNode>,
+) -> Result<MainBlockBody, anyhow::Error> {
+    let prev = hl.lookup(prev_hash).await?;
+    let opts = hl.lookup(prev.block.body.options).await?;
+    if timestamp_ms % (opts.timestamp_period_ms as i64) != 0
+        || timestamp_ms <= prev.block.body.timestamp_ms
+    {
+        bail!("invalid timestamp in next_main_block_body");
+    }
+    let top = hl.lookup(top_hash).await?;
+    if top.body.path.len() != 0 {
+        bail!("next_main_block_body must be called with root QuorumNode");
+    }
+    if top_hash != prev.block.body.tree {
+        verify_endorsed_quorum_node(hl, &prev, &top);
+    }
+    Ok(MainBlockBody {
+        prev: Some(prev_hash),
+        version: prev.block.body.version + 1,
+        timestamp_ms,
+        tree: top_hash,
+        options: prev.block.body.options,
+    })
+}
