@@ -39,3 +39,27 @@ impl AccountState {
             .unwrap()
     }
 }
+
+async fn add_data_tree_to_account_state<HL: HashLookup>(
+    hl: &HL,
+    path: HexPath,
+    node: Hash<DataNode>,
+    state: &mut AccountState,
+) -> Result<(), anyhow::Error> {
+    let node = hl.lookup(node).await?;
+    match node.field {
+        None => {}
+        Some(value) => {
+            state.fields.insert(path.clone(), value);
+        }
+    }
+    for (suffix, child) in node.children.iter_entries() {
+        let child_path = vec![path.clone(), suffix.clone()].concat();
+        add_data_tree_to_account_state(hl, child_path, *child, state);
+    }
+    Ok(())
+}
+
+pub struct MainState {
+    pub accounts: BTreeMap<HashCode, AccountState>,
+}
