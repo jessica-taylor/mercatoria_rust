@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::bail;
 
+use crate::account_transform::{field_balance, field_received, field_stake};
 use crate::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
     QuorumNodeBody, QuorumNodeStats, RadixChildren, SendInfo,
@@ -26,5 +27,11 @@ impl AccountState {
             }
         }
         res
+    }
+    fn has_received(&self, sender: HashCode, send: &SendInfo) -> bool {
+        match self.fields.get(&field_received(hash(send)).path) {
+            None => false,
+            Some(value) => rmp_serde::from_read::<_, bool>(value.as_slice()).unwrap(),
+        }
     }
 }
