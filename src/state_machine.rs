@@ -81,6 +81,14 @@ pub struct MainState {
     pub accounts: BTreeMap<HashCode, AccountState>,
 }
 
+impl MainState {
+    pub fn empty() -> MainState {
+        MainState {
+            accounts: BTreeMap::new(),
+        }
+    }
+}
+
 async fn get_account_states_under<HL: HashLookup>(
     hl: &HL,
     node_hash: Hash<QuorumNode>,
@@ -98,4 +106,13 @@ async fn get_account_states_under<HL: HashLookup>(
         }
     }
     Ok(())
+}
+
+pub async fn get_chain_state<HL: HashLookup>(
+    hl: &HL,
+    main: &MainBlock,
+) -> Result<MainState, anyhow::Error> {
+    let mut state = MainState::empty();
+    get_account_states_under(hl, main.block.body.tree, &mut state);
+    Ok(state)
 }
