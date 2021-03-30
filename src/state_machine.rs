@@ -128,7 +128,7 @@ fn get_account_states_under<'a, HL: HashLookup>(
     .boxed()
 }
 
-pub async fn get_chain_state<HL: HashLookup>(
+pub async fn get_main_state<HL: HashLookup>(
     hl: &HL,
     main: &MainBlock,
 ) -> Result<MainState, anyhow::Error> {
@@ -181,4 +181,22 @@ pub async fn get_next_account_state<HL: HashLookup>(
         }
         Err(_) => None,
     }
+}
+
+pub async fn get_next_main_state<HL: HashLookup>(
+    hl: &HL,
+    last_main: Hash<MainBlock>,
+    actions: BTreeMap<HashCode, Action>,
+    main_state: &MainState,
+) -> MainState {
+    let mut next_state = main_state.clone();
+    for (acct, action) in actions {
+        match get_next_account_state(hl, last_main, acct, &action, main_state).await {
+            None => {}
+            Some(next_acct_state) => {
+                next_state.accounts.insert(acct, next_acct_state);
+            }
+        }
+    }
+    next_state
 }
