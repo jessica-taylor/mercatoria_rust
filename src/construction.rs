@@ -125,7 +125,7 @@ pub struct AccountInit {
 
 pub async fn genesis_block_body<HL: HashLookup + HashPut>(
     hl: &mut HL,
-    account_inits: Vec<AccountInit>,
+    account_inits: &Vec<AccountInit>,
     timestamp_ms: i64,
     opts: MainOptions,
 ) -> Result<MainBlockBody, anyhow::Error> {
