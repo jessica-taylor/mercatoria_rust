@@ -15,7 +15,7 @@ use crate::hex_path::{is_prefix, HexPath};
 use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
-use crate::verification::{verify_endorsed_quorum_node};
+use crate::verification::verify_endorsed_quorum_node;
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
@@ -181,7 +181,7 @@ pub async fn next_main_block_body<HL: HashLookup>(
         bail!("next_main_block_body must be called with root QuorumNode");
     }
     if top_hash != prev.block.body.tree {
-        verify_endorsed_quorum_node(hl, &prev, &top);
+        verify_endorsed_quorum_node(hl, &prev, &top).await?;
     }
     Ok(MainBlockBody {
         prev: Some(prev_hash),

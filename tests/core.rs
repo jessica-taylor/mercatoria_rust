@@ -38,7 +38,7 @@ async fn test_genesis_block(
     let expected_state = genesis_state(&inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(expected_state, actual_state);
-    verify_valid_main_block_body(&hl, &main).unwrap();
+    verify_valid_main_block_body(&hl, &main).await.unwrap();
     (hl, main)
 }
 
@@ -49,7 +49,7 @@ async fn test_send_and_receive(
     receiver_ix: u32,
     amount: u64,
 ) {
-    let start_state = get_main_state(&hl, &main).await.unwrap();
+    let start_state = get_main_state(hl, start_main).await.unwrap();
     // let acct_states =
 }
 
@@ -73,6 +73,6 @@ proptest! {
         inits in account_inits(),
         timestamp_ms in prop::num::i32::ANY
     ) {
-        smol::block_on(test_genesis_block(inits, timestamp_ms as i64, test_options()));
+        smol::block_on(test_genesis_block(&inits, timestamp_ms as i64, test_options()));
     }
 }
