@@ -1,10 +1,8 @@
-#![allow(warnings)]
-
 use std::collections::BTreeMap;
 
 use anyhow::bail;
 use ed25519_dalek::PublicKey;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::account_construction::{initialize_account_node, insert_into_rh_tree};
 use crate::blockdata::{
@@ -17,7 +15,7 @@ use crate::hex_path::{is_prefix, HexPath};
 use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
-use crate::verification::{quorum_node_body_score, verify_endorsed_quorum_node};
+use crate::verification::{verify_endorsed_quorum_node};
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
@@ -113,7 +111,7 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
             }
         }
     }
-    Ok((best.get(&super_path).unwrap().0.clone()))
+    Ok(best.get(&super_path).unwrap().0.clone())
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]

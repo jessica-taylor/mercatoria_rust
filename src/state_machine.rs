@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
 
-use anyhow::bail;
+
 use futures_lite::FutureExt;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::account_transform::{
     field_balance, field_public_key, field_received, field_stake, run_action, AccountTransform,
@@ -14,12 +14,10 @@ use crate::blockdata::{
     QuorumNodeBody, QuorumNodeStats, RadixChildren, SendInfo,
 };
 use crate::construction::AccountInit;
-use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
-use crate::hashlookup::{HashLookup, HashPut};
-use crate::hex_path::{bytes_to_path, is_prefix, HexPath};
-use crate::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
-};
+use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
+use crate::hashlookup::{HashLookup};
+use crate::hex_path::{bytes_to_path, HexPath};
+
 
 #[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct AccountState {

@@ -6,16 +6,12 @@ use mercatoria_rust::blockdata::{
 use mercatoria_rust::construction::{
     best_super_node, genesis_block_body, next_main_block_body, AccountInit,
 };
-use mercatoria_rust::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
-use mercatoria_rust::hashlookup::{HashLookup, HashPut, MapHashLookup};
-use mercatoria_rust::hex_path::{is_prefix, HexPath};
-use mercatoria_rust::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
-};
-use mercatoria_rust::state_machine::{
-    genesis_state, get_main_state, get_next_main_state, AccountState, MainState,
-};
-use mercatoria_rust::verification::{quorum_node_body_score, verify_endorsed_quorum_node};
+use mercatoria_rust::crypto::hash;
+use mercatoria_rust::hashlookup::MapHashLookup;
+
+use mercatoria_rust::state_machine::{genesis_state, get_main_state};
+
+use mercatoria_rust::verification::verify_valid_main_block_body;
 use proptest::prelude::*;
 
 mod strategies;
@@ -38,6 +34,7 @@ async fn test_genesis_block(inits: Vec<AccountInit>, timestamp_ms: i64, opts: Ma
     let expected_state = genesis_state(&inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(expected_state, actual_state);
+    verify_valid_main_block_body(&hl, &main).await.unwrap();
 }
 
 fn test_options() -> MainOptions {
