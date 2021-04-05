@@ -130,10 +130,10 @@ fn get_account_states_under<'a, HL: HashLookup>(
 
 pub async fn get_main_state<HL: HashLookup>(
     hl: &HL,
-    main: &MainBlock,
+    main: &MainBlockBody,
 ) -> Result<MainState, anyhow::Error> {
     let mut state = MainState::empty();
-    get_account_states_under(hl, main.block.body.tree, &mut state).await?;
+    get_account_states_under(hl, main.tree, &mut state).await?;
     Ok(state)
 }
 

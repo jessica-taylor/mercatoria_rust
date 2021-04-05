@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use anyhow::bail;
 use ed25519_dalek::PublicKey;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::account_construction::{initialize_account_node, insert_into_rh_tree};
 use crate::blockdata::{
@@ -115,6 +116,7 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
     Ok((best.get(&super_path).unwrap().0.clone()))
 }
 
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct AccountInit {
     pub public_key: PublicKey,
     pub balance: u128,
