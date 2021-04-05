@@ -12,7 +12,11 @@ use mercatoria_rust::state_machine::{genesis_state, get_main_state};
 
 use mercatoria_rust::verification::verify_valid_main_block_body;
 
-async fn test_genesis_block(inits: Vec<AccountInit>, timestamp_ms: i64, opts: MainOptions) {
+async fn test_genesis_block(
+    inits: &Vec<AccountInit>,
+    timestamp_ms: i64,
+    opts: MainOptions,
+) -> (MapHashLookup, MainBlockBody) {
     let hash_opts = hash(&opts);
     let mut hl = MapHashLookup::new();
     let main = genesis_block_body(&mut hl, &inits, timestamp_ms, opts)
@@ -26,4 +30,16 @@ async fn test_genesis_block(inits: Vec<AccountInit>, timestamp_ms: i64, opts: Ma
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(expected_state, actual_state);
     verify_valid_main_block_body(&hl, &main).unwrap();
+    (hl, main)
+}
+
+async fn test_send_and_receive(
+    hl: &mut MapHashLookup,
+    start_main: &MainBlockBody,
+    sender_ix: u32,
+    receiver_ix: u32,
+    amount: u64,
+) {
+    let start_state = get_main_state(&hl, &main).await.unwrap();
+    // let acct_states =
 }
