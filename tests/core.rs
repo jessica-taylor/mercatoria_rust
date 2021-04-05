@@ -1,3 +1,4 @@
+use mercatoria_rust::account_construction::{initialize_account_node, insert_into_rh_tree};
 use mercatoria_rust::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
     QuorumNodeBody, QuorumNodeStats, RadixChildren,
@@ -11,6 +12,14 @@ use mercatoria_rust::hashlookup::MapHashLookup;
 use mercatoria_rust::state_machine::{genesis_state, get_main_state};
 
 use mercatoria_rust::verification::verify_valid_main_block_body;
+use proptest::prelude::*;
+
+mod strategies;
+use strategies::*;
+
+// fn arb_init() -> impl Strategy<Value = AccountInit> {
+//
+// }
 
 async fn test_genesis_block(
     inits: &Vec<AccountInit>,
@@ -42,4 +51,28 @@ async fn test_send_and_receive(
 ) {
     let start_state = get_main_state(&hl, &main).await.unwrap();
     // let acct_states =
+}
+
+fn test_options() -> MainOptions {
+    MainOptions {
+        gas_cost: 1,
+        gas_limit: u128::max_value(),
+        timestamp_period_ms: 100,
+        main_block_signers: 10,
+        main_block_signatures_required: 10,
+        random_seed_period: 10,
+        quorum_period: 90,
+        max_quorum_depth: 16,
+        quorum_sizes_thresholds: vec![(3, 4)],
+    }
+}
+
+proptest! {
+    #[test]
+    fn proptest_genesis_block(
+        inits in account_inits(),
+        timestamp_ms in prop::num::i32::ANY
+    ) {
+        smol::block_on(test_genesis_block(inits, timestamp_ms as i64, test_options()));
+    }
 }
