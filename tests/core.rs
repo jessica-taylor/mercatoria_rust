@@ -41,7 +41,7 @@ fn test_options() -> MainOptions {
     MainOptions {
         gas_cost: 1,
         gas_limit: u128::max_value(),
-        timestamp_period_ms: 1,
+        timestamp_period_ms: 10,
         main_block_signers: 10,
         main_block_signatures_required: 10,
         random_seed_period: 10,
