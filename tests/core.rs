@@ -1,4 +1,3 @@
-
 use mercatoria_rust::blockdata::{
     Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
     QuorumNodeBody, QuorumNodeStats, RadixChildren,
@@ -6,18 +5,12 @@ use mercatoria_rust::blockdata::{
 use mercatoria_rust::construction::{
     best_super_node, genesis_block_body, next_main_block_body, AccountInit,
 };
-use mercatoria_rust::crypto::{hash};
-use mercatoria_rust::hashlookup::{MapHashLookup};
+use mercatoria_rust::crypto::hash;
+use mercatoria_rust::hashlookup::MapHashLookup;
 
+use mercatoria_rust::state_machine::{genesis_state, get_main_state};
 
-use mercatoria_rust::state_machine::{
-    genesis_state, get_main_state,
-};
-
-
-// fn arb_init() -> impl Strategy<Value = AccountInit> {
-//
-// }
+use mercatoria_rust::verification::verify_valid_main_block_body;
 
 async fn test_genesis_block(inits: Vec<AccountInit>, timestamp_ms: i64, opts: MainOptions) {
     let hash_opts = hash(&opts);
@@ -32,4 +25,5 @@ async fn test_genesis_block(inits: Vec<AccountInit>, timestamp_ms: i64, opts: Ma
     let expected_state = genesis_state(&inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(expected_state, actual_state);
+    verify_valid_main_block_body(&hl, &main).unwrap();
 }
