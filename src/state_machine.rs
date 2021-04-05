@@ -137,7 +137,7 @@ pub async fn get_main_state<HL: HashLookup>(
     Ok(state)
 }
 
-pub async fn genesis_state(inits: Vec<AccountInit>) -> MainState {
+pub async fn genesis_state(inits: &Vec<AccountInit>) -> MainState {
     let mut state = MainState::empty();
     for init in inits {
         let mut acct_state = AccountState::empty();
