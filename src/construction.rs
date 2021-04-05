@@ -115,6 +115,7 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
     Ok((best.get(&super_path).unwrap().0.clone()))
 }
 
+#[derive(Debug)]
 pub struct AccountInit {
     pub public_key: PublicKey,
     pub balance: u128,
