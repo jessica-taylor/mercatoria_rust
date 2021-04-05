@@ -23,9 +23,11 @@ use strategies::*;
 
 async fn test_genesis_block(
     inits: &Vec<AccountInit>,
-    timestamp_ms: i64,
+    mut timestamp_ms: i64,
     opts: MainOptions,
 ) -> (MapHashLookup, MainBlockBody) {
+    timestamp_ms =
+        (timestamp_ms % (opts.timestamp_period_ms as i64)) * (opts.timestamp_period_ms as i64);
     let hash_opts = hash(&opts);
     let mut hl = MapHashLookup::new();
     let main = genesis_block_body(&mut hl, &inits, timestamp_ms, opts)
