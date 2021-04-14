@@ -1,11 +1,9 @@
 use mercatoria_rust::account_construction::{initialize_account_node, insert_into_rh_tree};
 use mercatoria_rust::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
-    QuorumNodeBody, QuorumNodeStats, RadixChildren,
+    AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
+    QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
 };
-use mercatoria_rust::construction::{
-    best_super_node, genesis_block_body, next_main_block_body, AccountInit,
-};
+use mercatoria_rust::construction::{best_super_node, genesis_block_body, next_main_block_body};
 use mercatoria_rust::crypto::hash;
 use mercatoria_rust::hashlookup::MapHashLookup;
 
