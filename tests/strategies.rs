@@ -1,4 +1,4 @@
-use mercatoria_rust::{blockdata::*, construction::*, crypto};
+use mercatoria_rust::{blockdata::*, crypto};
 use proptest::prelude::*;
 
 prop_compose! {

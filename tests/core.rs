@@ -1,4 +1,4 @@
-use mercatoria_rust::account_construction::{initialize_account_node, insert_into_rh_tree};
+
 use mercatoria_rust::blockdata::{
     AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
     QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
@@ -45,11 +45,11 @@ async fn test_genesis_block(
 async fn test_send_and_receive(
     hl: &mut MapHashLookup,
     start_main: &MainBlockBody,
-    sender_ix: u32,
-    receiver_ix: u32,
-    amount: u64,
+    _sender_ix: u32,
+    _receiver_ix: u32,
+    _amount: u64,
 ) {
-    let start_state = get_main_state(hl, start_main).await.unwrap();
+    let _start_state = get_main_state(hl, start_main).await.unwrap();
     // let acct_states =
 }
 
