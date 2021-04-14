@@ -109,6 +109,6 @@ proptest! {
         inits in account_inits(),
         timestamp_ms in prop::num::i32::ANY
     ) {
-        // smol::block_on(test_genesis_block(&inits, timestamp_ms as i64, test_options()));
+        smol::block_on(test_genesis_block(&inits, timestamp_ms as i64, test_options()));
     }
 }

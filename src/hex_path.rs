@@ -19,8 +19,8 @@ impl fmt::Display for u4 {
 impl Arbitrary for u4 {
     type Parameters = u8;
     type Strategy = proptest::strategy::Just<u4>;
-    fn arbitrary_with(params: u8) -> Self::Strategy {
-        proptest::strategy::Just(u4(params % 16))
+    fn arbitrary_with(param: u8) -> Self::Strategy {
+        proptest::strategy::Just(u4(param % 16))
     }
 }
 
