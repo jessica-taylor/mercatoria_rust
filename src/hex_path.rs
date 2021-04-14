@@ -12,6 +12,19 @@ pub struct u4(pub u8);
 #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone)]
 pub struct HexPath(pub Vec<u4>);
 
+impl std::fmt::Display for HexPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for digit in self.iter() {
+            if digit.0 < 10 {
+                write!(f, "{}", (('0' as u8) + digit.0) as char)?;
+            } else {
+                write!(f, "{}", (('A' as u8) + (digit.0 - 10)) as char)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl AsRef<Vec<u4>> for HexPath {
     fn as_ref(&self) -> &Vec<u4> {
         &self.0
@@ -54,18 +67,6 @@ pub fn bytes_to_path(bs: &[u8]) -> HexPath {
         p.push(u4(b % 16))
     }
     HexPath(p)
-}
-
-pub fn show_hex_path(path: &[u4]) -> String {
-    let mut chs = Vec::<u8>::new();
-    for digit in path {
-        if digit.0 < 10 {
-            chs.push(('0' as u8) + digit.0);
-        } else {
-            chs.push(('A' as u8) + (digit.0 - 10));
-        }
-    }
-    String::from_utf8(chs).unwrap()
 }
 
 /// Is the first vector a prefix of the second?

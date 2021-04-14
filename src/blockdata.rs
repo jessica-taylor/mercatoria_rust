@@ -1,6 +1,6 @@
 use crate::crypto::{Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
-use crate::hex_path::{is_postfix, show_hex_path, u4, HexPath};
+use crate::hex_path::{is_postfix, u4, HexPath};
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -181,9 +181,9 @@ impl RadixHashNode for QuorumNode {
             if child.body.path.0 != [&self.body.path[..], &suffix[..]].concat() {
                 bail!(
                     "quorum child node has wrong path; child path is {}, parent path is {}, suffix is {}",
-                    show_hex_path(&child.body.path[..]),
-                    show_hex_path(&self.body.path[..]),
-                    show_hex_path(&suffix[..])
+                    child.body.path,
+                    self.body.path,
+                    suffix
                 );
             }
             self.body.stats.stake += child.body.stats.stake;
