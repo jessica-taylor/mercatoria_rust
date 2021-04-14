@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::convert::AsRef;
+use std::ops::Index;
+use std::slice::SliceIndex;
 
 #[allow(non_camel_case_types)]
 /// A hexadecimal digit.
@@ -6,16 +9,51 @@ use serde::{Deserialize, Serialize};
 pub struct u4(pub u8);
 
 /// A hexadecimal string.
-pub type HexPath = Vec<u4>;
+#[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone)]
+pub struct HexPath(pub Vec<u4>);
+
+impl AsRef<Vec<u4>> for HexPath {
+    fn as_ref(&self) -> &Vec<u4> {
+        &self.0
+    }
+}
+
+impl HexPath {
+    pub fn iter(&self) -> impl Iterator<Item = &u4> {
+        self.0.iter()
+    }
+    pub fn into_iter(self) -> impl Iterator<Item = u4> {
+        self.0.into_iter()
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl AsRef<[u4]> for HexPath {
+    fn as_ref(&self) -> &[u4] {
+        self.0.as_ref()
+    }
+}
+
+impl<Idx: SliceIndex<[u4]>> Index<Idx> for HexPath {
+    type Output = Idx::Output;
+    fn index(&self, index: Idx) -> &Self::Output {
+        &self.0[index]
+    }
+}
 
 /// Converts a byte array to a hexadecimal string.
 pub fn bytes_to_path(bs: &[u8]) -> HexPath {
-    let mut p = HexPath::new();
+    let mut p = Vec::new();
     for b in bs {
         p.push(u4(b / 16));
         p.push(u4(b % 16))
     }
-    p
+    HexPath(p)
 }
 
 pub fn show_hex_path(path: &[u4]) -> String {

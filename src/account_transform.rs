@@ -55,7 +55,7 @@ pub fn field_public_key() -> TypedDataField<ed25519_dalek::PublicKey> {
 /// Field for a `SendInfo` stored in the sender's data.
 pub fn field_send(send: Hash<SendInfo>) -> TypedDataField<SendInfo> {
     let mut path = bytes_to_path(b"send");
-    path.extend(&bytes_to_path(&send.code));
+    path.0.extend(&bytes_to_path(&send.code).0);
     TypedDataField::from_path(path)
 }
 
@@ -63,7 +63,7 @@ pub fn field_send(send: Hash<SendInfo>) -> TypedDataField<SendInfo> {
 /// data.
 pub fn field_received(send: Hash<SendInfo>) -> TypedDataField<bool> {
     let mut path = bytes_to_path(b"received");
-    path.extend(&bytes_to_path(&send.code));
+    path.0.extend(&bytes_to_path(&send.code).0);
     TypedDataField::from_path(path)
 }
 

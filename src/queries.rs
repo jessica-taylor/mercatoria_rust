@@ -31,18 +31,18 @@ pub async fn rh_follow_path<HL: HashLookup, N: RadixHashNode>(
 
         let (prefix, child_hash) = children.0[ix].as_ref().unwrap();
 
-        if is_prefix(prefix, rest) {
+        if is_prefix(&prefix[..], &rest[..]) {
             path = &path[prefix.len()..];
             node = hl.lookup(*child_hash).await?;
             continue;
-        } else if is_prefix(rest, prefix) {
+        } else if is_prefix(&rest[..], &prefix[..]) {
             break;
         } else {
             return Ok(None);
         }
     }
 
-    Ok(Some((node, path.to_owned())))
+    Ok(Some((node, HexPath(path.to_owned()))))
 }
 
 /// Follows a path starting from a `QuorumNode` going down.  Returns a node
@@ -53,7 +53,7 @@ pub async fn quorum_node_follow_path<HL: HashLookup>(
     node: &QuorumNode,
     path: &HexPath,
 ) -> Result<Option<(QuorumNode, HexPath)>, anyhow::Error> {
-    rh_follow_path(hl, node.clone(), path).await
+    rh_follow_path(hl, node.clone(), &path[..]).await
 }
 
 /// Looks up a quorum node in a given main block body.
@@ -91,7 +91,7 @@ pub async fn data_node_follow_path<HL: HashLookup>(
     node: &DataNode,
     path: &HexPath,
 ) -> Result<Option<(DataNode, HexPath)>, anyhow::Error> {
-    rh_follow_path(hl, node.clone(), path).await
+    rh_follow_path(hl, node.clone(), &path[..]).await
 }
 
 /// Looks up data given an account `QuorumNode`.

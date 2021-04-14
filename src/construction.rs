@@ -24,7 +24,7 @@ async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
 ) -> Result<Hash<QuorumNode>, anyhow::Error> {
     let parent = hl.lookup(parent_hash).await?;
     let child = hl.lookup(child_hash).await?;
-    if !is_prefix(&parent.body.path, &child.body.path) {
+    if !is_prefix(&parent.body.path[..], &child.body.path[..]) {
         bail!("child path must extend parent path");
     }
     let mut node_count = 0;
@@ -37,7 +37,14 @@ async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
             Ok(child.clone())
         }
     };
-    insert_into_rh_tree(hl, &mut node_count, &child.body.path, replace, parent_hash).await
+    insert_into_rh_tree(
+        hl,
+        &mut node_count,
+        &child.body.path[..],
+        replace,
+        parent_hash,
+    )
+    .await
 }
 
 async fn make_immediate_parent<HL: HashLookup + HashPut>(
@@ -83,7 +90,7 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
     for i in (super_path.len()..(64 + 1)).rev() {
         let mut candidates = Vec::<(QuorumNode, usize)>::new();
         for (child, score) in &input_children {
-            assert!(is_prefix(&super_path, &child.body.path));
+            assert!(is_prefix(&super_path[..], &child.body.path[..]));
             if child.body.path.len() == i {
                 candidates.push((child.clone(), *score));
             }
@@ -91,11 +98,11 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
         let mut i_path_map = BTreeMap::<HexPath, Vec<(QuorumNode, usize)>>::new();
         for (child, score) in best.values() {
             let i_path = child.body.path[0..i].to_vec();
-            if !i_path_map.contains_key(&i_path) {
-                i_path_map.insert(i_path.to_vec(), Vec::new());
+            if !i_path_map.contains_key(&HexPath(i_path[..].to_vec())) {
+                i_path_map.insert(HexPath(i_path.to_vec()), Vec::new());
             }
             i_path_map
-                .get_mut(&i_path)
+                .get_mut(&HexPath(i_path))
                 .unwrap()
                 .push((child.clone(), *score));
         }
@@ -133,7 +140,7 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
         .put(&QuorumNode {
             body: QuorumNodeBody {
                 last_main: None,
-                path: vec![],
+                path: HexPath(vec![]),
                 children: RadixChildren::default(),
                 data_tree: None,
                 new_action: None,

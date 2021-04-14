@@ -12,7 +12,7 @@ use crate::blockdata::{
 };
 use crate::crypto::{hash, path_to_hash_code, verify_sig, HashCode, Signature};
 use crate::hashlookup::{HashLookup, HashPutOfHashLookup};
-use crate::hex_path::is_prefix;
+use crate::hex_path::{is_prefix, HexPath};
 use crate::queries::{lookup_quorum_node, miner_and_signers_by_prev_block, quorums_by_prev_block};
 
 /// A score for a `QuorumNodeBody` represented its fee minus its total cost (prize and gas).
@@ -159,10 +159,12 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                 Some((prev_node, suffix)) => {
                     // check that all old children are present
                     'outer: for (prev_child_suffix, _) in prev_node.body.children.iter_entries() {
-                        if is_prefix(&suffix, &prev_child_suffix) {
+                        if is_prefix(&suffix[..], &prev_child_suffix[..]) {
                             for (new_child_suffix, _) in qnb.children.iter_entries() {
-                                if is_prefix(&new_child_suffix, &suffix[prev_child_suffix.len()..])
-                                {
+                                if is_prefix(
+                                    &new_child_suffix[..],
+                                    &suffix[prev_child_suffix.len()..],
+                                ) {
                                     continue 'outer;
                                 }
                             }
@@ -174,7 +176,7 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
             // check that new children are endorsed
             for (_child_suffix, child_hash) in qnb.children.iter_entries() {
                 let child = hl.lookup(*child_hash).await?;
-                if Some((child.clone(), vec![]))
+                if Some((child.clone(), HexPath(vec![])))
                     != lookup_quorum_node(hl, &last_main.block.body, &child.body.path).await?
                 {
                     verify_endorsed_quorum_node(hl, last_main, &child).await?;

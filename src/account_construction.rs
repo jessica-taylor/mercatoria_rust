@@ -23,7 +23,7 @@ impl<N> RadixChildren<N> {
     /// Inserts a child into a list of radix hash children, replacing a child
     /// with the same first character if one exists.
     fn insert_child(&mut self, path: &[u4], node: N) -> Option<(HexPath, N)> {
-        self.0[path.get(0)?.0 as usize].replace(((&path[1..]).to_owned(), node))
+        self.0[path.get(0)?.0 as usize].replace((HexPath((&path[1..]).to_owned()), node))
     }
 }
 
@@ -63,7 +63,7 @@ pub fn insert_into_rh_tree<
         } else if let Some((suffix, child_hash)) = tree.get_children().0[path[0].0 as usize].clone()
         {
             let path = &path[1..];
-            if is_prefix(&suffix, path) {
+            if is_prefix(&suffix[..], path) {
                 // modify the child
                 let new_child_hash = insert_into_rh_tree(
                     hl,
@@ -73,15 +73,19 @@ pub fn insert_into_rh_tree<
                     child_hash,
                 )
                 .await?;
-                return rh_node_insert_child(hl, node_count, &suffix, new_child_hash, tree).await;
+                return rh_node_insert_child(hl, node_count, &suffix[..], new_child_hash, tree)
+                    .await;
             } else {
                 // create an intermediate node
-                let pref_len = longest_prefix_length(path, &suffix);
+                let pref_len = longest_prefix_length(path, &suffix[..]);
                 *node_count += 1;
                 let mut new_child_hash = hl
                     .put(
-                        &N::from_single_child(hl, (suffix[pref_len..].to_vec(), child_hash))
-                            .await?,
+                        &N::from_single_child(
+                            hl,
+                            (HexPath(suffix[pref_len..].to_vec()), child_hash),
+                        )
+                        .await?,
                     )
                     .await?;
                 // modify the intermediate node
@@ -161,7 +165,7 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
         .await?;
     let mut node_count = 1;
     for (path, value) in fields.clone() {
-        data_tree = insert_into_data_tree(hl, &mut node_count, &path, value, data_tree).await?;
+        data_tree = insert_into_data_tree(hl, &mut node_count, &path[..], value, data_tree).await?;
     }
     let node = QuorumNodeBody {
         last_main,
@@ -211,7 +215,7 @@ pub async fn add_action_to_account<HL: HashLookup + HashPut>(
     let new_stake = at.get_data_field_or_error(account, &field_stake()).await?;
     let mut node_count = 0;
     for (path, value) in at.fields_set {
-        data_tree = insert_into_data_tree(hl, &mut node_count, &path, value, data_tree).await?;
+        data_tree = insert_into_data_tree(hl, &mut node_count, &path[..], value, data_tree).await?;
     }
     Ok(QuorumNodeBody {
         last_main: Some(hash(last_main)),

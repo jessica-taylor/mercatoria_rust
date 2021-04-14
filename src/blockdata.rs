@@ -20,7 +20,7 @@ impl<T> Default for RadixChildren<T> {
 impl<T> RadixChildren<T> {
     fn from_single_child(mut prefix: HexPath, hash: T) -> Option<Self> {
         let mut out = Self::default();
-        let c = prefix.drain(0..1).next()?.0 as usize;
+        let c = prefix.0.drain(0..1).next()?.0 as usize;
         out.0[c] = Some((prefix, hash));
         Some(out)
     }
@@ -29,7 +29,7 @@ impl<T> RadixChildren<T> {
         self.0.iter().enumerate().flat_map(|(i, x)| {
             x.as_ref().map(|(path, child)| {
                 let mut path2 = path.clone();
-                path2.insert(0, u4(i as u8));
+                path2.0.insert(0, u4(i as u8));
                 (path2, child)
             })
         })
@@ -178,12 +178,12 @@ impl RadixHashNode for QuorumNode {
         self.body.stats.new_nodes = 1;
         for (suffix, hash_child) in self.body.children.iter_entries() {
             let child = hl.lookup(*hash_child).await?;
-            if child.body.path != [&self.body.path[..], &suffix[..]].concat() {
+            if child.body.path.0 != [&self.body.path[..], &suffix[..]].concat() {
                 bail!(
                     "quorum child node has wrong path; child path is {}, parent path is {}, suffix is {}",
-                    show_hex_path(&child.body.path),
-                    show_hex_path(&self.body.path),
-                    show_hex_path(&suffix)
+                    show_hex_path(&child.body.path[..]),
+                    show_hex_path(&self.body.path[..]),
+                    show_hex_path(&suffix[..])
                 );
             }
             self.body.stats.stake += child.body.stats.stake;
@@ -202,7 +202,7 @@ impl RadixHashNode for QuorumNode {
         child: (HexPath, Hash<QuorumNode>),
     ) -> Result<QuorumNode, anyhow::Error> {
         let child_node = hl.lookup(child.1).await?;
-        if !is_postfix(&child.0, &child_node.body.path) {
+        if !is_postfix(&child.0[..], &child_node.body.path[..]) {
             bail!("quorum child node has wrong postfix");
         }
         let mut stats = child_node.body.stats;
@@ -211,7 +211,9 @@ impl RadixHashNode for QuorumNode {
             signatures: None,
             body: QuorumNodeBody {
                 last_main: child_node.body.last_main,
-                path: child_node.body.path[..child_node.body.path.len() - child.0.len()].to_vec(),
+                path: HexPath(
+                    child_node.body.path[..child_node.body.path.len() - child.0.len()].to_vec(),
+                ),
                 children: RadixHashChildren::from_single_child(child.0, child.1)
                     .ok_or_else(|| anyhow!("child hex path must not be empty"))?,
                 data_tree: None,

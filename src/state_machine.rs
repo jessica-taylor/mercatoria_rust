@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
 
-
 use futures_lite::FutureExt;
 use serde::{Deserialize, Serialize};
 
@@ -15,9 +14,8 @@ use crate::blockdata::{
 };
 use crate::construction::AccountInit;
 use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
-use crate::hashlookup::{HashLookup};
+use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
-
 
 #[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct AccountState {
@@ -34,7 +32,7 @@ impl AccountState {
     pub fn sends(&self) -> Vec<SendInfo> {
         let mut res = Vec::new();
         for (path, value) in &self.fields {
-            if path.len() >= 4 && path[0..4].to_vec() == bytes_to_path(b"send") {
+            if path.len() >= 8 && path[0..8][..] == bytes_to_path(b"send")[..] {
                 res.push(rmp_serde::from_read::<_, SendInfo>(value.as_slice()).unwrap());
             }
         }
@@ -74,7 +72,7 @@ fn add_data_tree_to_account_state<'a, HL: HashLookup>(
             }
         }
         for (suffix, child) in node.children.iter_entries() {
-            let child_path = vec![path.clone(), suffix.clone()].concat();
+            let child_path = HexPath(vec![path.0.clone(), suffix.0.clone()].concat());
             add_data_tree_to_account_state(hl, child_path, *child, state).await?;
         }
         Ok(())
@@ -87,7 +85,7 @@ pub async fn get_account_state<HL: HashLookup>(
     node: Hash<DataNode>,
 ) -> Result<AccountState, anyhow::Error> {
     let mut state = AccountState::empty();
-    add_data_tree_to_account_state(hl, vec![], node, &mut state).await?;
+    add_data_tree_to_account_state(hl, HexPath(vec![]), node, &mut state).await?;
     Ok(state)
 }
 
