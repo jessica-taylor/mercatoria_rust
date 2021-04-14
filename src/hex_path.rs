@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::convert::AsRef;
+use std::fmt;
 use std::ops::Index;
 use std::slice::SliceIndex;
 
@@ -8,12 +9,18 @@ use std::slice::SliceIndex;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct u4(pub u8);
 
+impl fmt::Display for u4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// A hexadecimal string.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone)]
 pub struct HexPath(pub Vec<u4>);
 
-impl std::fmt::Display for HexPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for HexPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for digit in self.iter() {
             if digit.0 < 10 {
                 write!(f, "{}", (('0' as u8) + digit.0) as char)?;

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -53,6 +54,16 @@ impl AccountState {
     pub fn stake(&self) -> u128 {
         rmp_serde::from_read::<_, u128>(self.fields.get(&field_stake().path).unwrap().as_slice())
             .unwrap()
+    }
+}
+
+impl fmt::Display for AccountState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "AccountState {{")?;
+        for (path, value) in &self.fields {
+            write!(f, "\n  {}: {:?}", path, value)?;
+        }
+        write!(f, "}}")
     }
 }
 
