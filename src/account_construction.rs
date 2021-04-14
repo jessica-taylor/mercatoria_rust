@@ -118,7 +118,7 @@ pub fn insert_into_rh_tree<
 }
 
 /// Inserts a field at a given path in a data tree.
-async fn insert_into_data_tree<'a, HL: HashLookup + HashPut>(
+pub async fn insert_into_data_tree<'a, HL: HashLookup + HashPut>(
     hl: &'a mut HL,
     node_count: &'a mut usize,
     path: &[u4],

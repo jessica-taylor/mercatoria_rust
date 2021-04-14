@@ -1,3 +1,4 @@
+use proptest::arbitrary::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::convert::AsRef;
 use std::fmt;
@@ -15,6 +16,14 @@ impl fmt::Display for u4 {
     }
 }
 
+impl Arbitrary for u4 {
+    type Parameters = u8;
+    type Strategy = proptest::strategy::Just<u4>;
+    fn arbitrary_with(params: u8) -> Self::Strategy {
+        proptest::strategy::Just(u4(params % 16))
+    }
+}
+
 /// A hexadecimal string.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone)]
 pub struct HexPath(pub Vec<u4>);
@@ -29,6 +38,14 @@ impl fmt::Display for HexPath {
             }
         }
         Ok(())
+    }
+}
+
+impl Arbitrary for HexPath {
+    type Parameters = Vec<u4>;
+    type Strategy = proptest::strategy::Just<HexPath>;
+    fn arbitrary_with(param: Vec<u4>) -> Self::Strategy {
+        proptest::strategy::Just(HexPath(param))
     }
 }
 

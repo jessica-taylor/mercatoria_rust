@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use anyhow::bail;
 
-
 use crate::account_construction::{initialize_account_node, insert_into_rh_tree};
 use crate::blockdata::{
     AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
@@ -14,6 +13,7 @@ use crate::hex_path::{is_prefix, HexPath};
 use crate::queries::{
     longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
 };
+use crate::state_machine::get_main_state;
 use crate::verification::verify_endorsed_quorum_node;
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
@@ -142,6 +142,7 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
             signatures: None,
         })
         .await?;
+    let opts_hash = hl.put(&opts).await?;
     for init in account_inits {
         let (_, acct_node_body) = initialize_account_node(hl, None, init).await?;
         let acct_node = hl
@@ -151,13 +152,28 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
             })
             .await?;
         top = add_child_to_quorum_node(hl, acct_node, top).await?;
+        println!(
+            "top is {}",
+            get_main_state(
+                hl,
+                &MainBlockBody {
+                    prev: None,
+                    version: 0,
+                    timestamp_ms,
+                    tree: top,
+                    options: opts_hash
+                },
+            )
+            .await
+            .unwrap(),
+        );
     }
     Ok(MainBlockBody {
         prev: None,
         version: 0,
         timestamp_ms,
         tree: top,
-        options: hl.put(&opts).await?,
+        options: opts_hash,
     })
 }
 
