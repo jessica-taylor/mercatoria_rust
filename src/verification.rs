@@ -159,9 +159,10 @@ fn verify_valid_quorum_node_body<'a, HL: HashLookup>(
                 Some((prev_node, suffix)) => {
                     // check that all old children are present
                     'outer: for (prev_child_suffix, _) in prev_node.body.children.iter_entries() {
-                        if is_prefix(&suffix, prev_child_suffix) {
+                        if is_prefix(&suffix, &prev_child_suffix) {
                             for (new_child_suffix, _) in qnb.children.iter_entries() {
-                                if is_prefix(new_child_suffix, &suffix[prev_child_suffix.len()..]) {
+                                if is_prefix(&new_child_suffix, &suffix[prev_child_suffix.len()..])
+                                {
                                     continue 'outer;
                                 }
                             }

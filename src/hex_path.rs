@@ -20,6 +20,18 @@ pub fn bytes_to_path(bs: &[u8]) -> HexPath {
     p
 }
 
+pub fn show_hex_path(path: &[u4]) -> String {
+    let mut chs = Vec::<u8>::new();
+    for digit in path {
+        if digit.value < 10 {
+            chs.push(('0' as u8) + digit.value);
+        } else {
+            chs.push(('A' as u8) + (digit.value - 10));
+        }
+    }
+    String::from_utf8(chs).unwrap()
+}
+
 /// Is the first vector a prefix of the second?
 pub fn is_prefix<T: Eq>(pre: &[T], full: &[T]) -> bool {
     pre.len() <= full.len() && pre.iter().zip(full.iter()).all(|(x, y)| x == y)

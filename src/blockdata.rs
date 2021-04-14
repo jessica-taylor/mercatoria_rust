@@ -1,6 +1,6 @@
 use crate::crypto::{Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
-use crate::hex_path::{is_postfix, HexPath};
+use crate::hex_path::{is_postfix, show_hex_path, u4, HexPath};
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -25,8 +25,14 @@ impl<T> RadixChildren<T> {
         Some(out)
     }
 
-    pub fn iter_entries(&'_ self) -> impl Iterator<Item = &'_ (HexPath, T)> + '_ {
-        self.0.iter().flat_map(|x| x.as_ref())
+    pub fn iter_entries(&self) -> impl Iterator<Item = (HexPath, &T)> {
+        self.0.iter().enumerate().flat_map(|(i, x)| {
+            x.as_ref().map(|(path, child)| {
+                let mut path2 = path.clone();
+                path2.insert(0, u4 { value: i as u8 });
+                (path2, child)
+            })
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -173,7 +179,12 @@ impl RadixHashNode for QuorumNode {
         for (suffix, hash_child) in self.body.children.0.iter().filter_map(|x| x.as_ref()) {
             let child = hl.lookup(*hash_child).await?;
             if child.body.path != [&self.body.path[..], &suffix[..]].concat() {
-                bail!("quorum child node has wrong path");
+                bail!(
+                    "quorum child node has wrong path; child path is {}, parent path is {}, suffix is {}",
+                    show_hex_path(&child.body.path),
+                    show_hex_path(&self.body.path),
+                    show_hex_path(&suffix)
+                );
             }
             self.body.stats.stake += child.body.stats.stake;
             if self.body.last_main == child.body.last_main {
