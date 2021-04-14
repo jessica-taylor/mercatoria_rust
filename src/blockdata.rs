@@ -20,7 +20,7 @@ impl<T> Default for RadixChildren<T> {
 impl<T> RadixChildren<T> {
     fn from_single_child(mut prefix: HexPath, hash: T) -> Option<Self> {
         let mut out = Self::default();
-        let c = prefix.drain(0..1).next()?.value as usize;
+        let c = prefix.drain(0..1).next()?.0 as usize;
         out.0[c] = Some((prefix, hash));
         Some(out)
     }
@@ -29,7 +29,7 @@ impl<T> RadixChildren<T> {
         self.0.iter().enumerate().flat_map(|(i, x)| {
             x.as_ref().map(|(path, child)| {
                 let mut path2 = path.clone();
-                path2.insert(0, u4 { value: i as u8 });
+                path2.insert(0, u4(i as u8));
                 (path2, child)
             })
         })

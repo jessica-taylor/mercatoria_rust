@@ -39,7 +39,7 @@ pub fn hash_of_bytes(bs: &[u8]) -> HashCode {
     blake3::hash(bs).into()
 }
 
-/// Gets the blake3 hash of a serialiable data value.
+/// Gets the blake3 hash of a serialiable data.0.
 pub fn hash<T: Serialize>(v: &T) -> Hash<T> {
     Hash {
         code: hash_of_bytes(rmp_serde::to_vec_named(v).unwrap().as_slice()),
@@ -54,7 +54,7 @@ pub fn path_to_hash_code(path: HexPath) -> HashCode {
     }
     let mut hc = [0; 32];
     for i in 0..32 {
-        hc[i] = path[2 * i].value * 16 + path[2 * i + 1].value;
+        hc[i] = path[2 * i].0 * 16 + path[2 * i + 1].0;
     }
     hc
 }
@@ -98,7 +98,7 @@ pub fn gen_private_key() -> Keypair {
     Keypair::generate(&mut thread_rng())
 }
 
-/// Signs a serializable value with a given ed25519 key.
+/// Signs a serializable.0 with a given ed25519 key.
 pub fn sign<T: Serialize>(key: &Keypair, msg: T) -> Signature<T> {
     Signature {
         sig: key.sign(&rmp_serde::to_vec_named(&msg).unwrap()),
@@ -107,7 +107,7 @@ pub fn sign<T: Serialize>(key: &Keypair, msg: T) -> Signature<T> {
     }
 }
 
-/// Verifies that a given signature of a given serializable value is valid.
+/// Verifies that a given signature of a given serializable.0 is valid.
 pub fn verify_sig<T: Serialize>(msg: &T, sig: &Signature<T>) -> bool {
     sig.key
         .verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig)

@@ -23,7 +23,7 @@ impl<N> RadixChildren<N> {
     /// Inserts a child into a list of radix hash children, replacing a child
     /// with the same first character if one exists.
     fn insert_child(&mut self, path: &[u4], node: N) -> Option<(HexPath, N)> {
-        self.0[path.get(0)?.value as usize].replace(((&path[1..]).to_owned(), node))
+        self.0[path.get(0)?.0 as usize].replace(((&path[1..]).to_owned(), node))
     }
 }
 
@@ -60,8 +60,7 @@ pub fn insert_into_rh_tree<
             // just replace the node
             *node_count += 1;
             return hl.put(&get_new_node(Some(tree))?).await;
-        } else if let Some((suffix, child_hash)) =
-            tree.get_children().0[path[0].value as usize].clone()
+        } else if let Some((suffix, child_hash)) = tree.get_children().0[path[0].0 as usize].clone()
         {
             let path = &path[1..];
             if is_prefix(&suffix, path) {

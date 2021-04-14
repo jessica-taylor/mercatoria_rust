@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 #[allow(non_camel_case_types)]
 /// A hexadecimal digit.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct u4 {
-    pub value: u8,
-}
+pub struct u4(pub u8);
 
 /// A hexadecimal string.
 pub type HexPath = Vec<u4>;
@@ -14,8 +12,8 @@ pub type HexPath = Vec<u4>;
 pub fn bytes_to_path(bs: &[u8]) -> HexPath {
     let mut p = HexPath::new();
     for b in bs {
-        p.push(u4 { value: b / 16 });
-        p.push(u4 { value: b % 16 })
+        p.push(u4(b / 16));
+        p.push(u4(b % 16))
     }
     p
 }
@@ -23,10 +21,10 @@ pub fn bytes_to_path(bs: &[u8]) -> HexPath {
 pub fn show_hex_path(path: &[u4]) -> String {
     let mut chs = Vec::<u8>::new();
     for digit in path {
-        if digit.value < 10 {
-            chs.push(('0' as u8) + digit.value);
+        if digit.0 < 10 {
+            chs.push(('0' as u8) + digit.0);
         } else {
-            chs.push(('A' as u8) + (digit.value - 10));
+            chs.push(('A' as u8) + (digit.0 - 10));
         }
     }
     String::from_utf8(chs).unwrap()

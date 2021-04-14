@@ -21,7 +21,7 @@ pub async fn rh_follow_path<HL: HashLookup, N: RadixHashNode>(
             break;
         }
 
-        let ix = path[0].value as usize;
+        let ix = path[0].0 as usize;
         let rest = &path[1..];
         let children = node.get_children();
 
