@@ -1,6 +1,7 @@
 use crate::crypto::{Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{is_postfix, u4, HexPath};
+use ed25519_dalek::PublicKey;
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -279,4 +280,11 @@ pub struct SendInfo {
     pub send_amount: u128,
     pub initialize_spec: Option<Hash<Vec<u8>>>,
     pub message: Vec<u8>,
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
+pub struct AccountInit {
+    pub public_key: PublicKey,
+    pub balance: u128,
+    pub stake: u128,
 }

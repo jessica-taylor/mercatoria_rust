@@ -1,13 +1,12 @@
 use std::collections::BTreeMap;
 
 use anyhow::bail;
-use ed25519_dalek::PublicKey;
 use serde::{Deserialize, Serialize};
 
 use crate::account_construction::{initialize_account_node, insert_into_rh_tree};
 use crate::blockdata::{
-    Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock, QuorumNode,
-    QuorumNodeBody, QuorumNodeStats, RadixChildren,
+    AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
+    QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
 };
 use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
@@ -121,13 +120,6 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
     Ok(best.get(&super_path).unwrap().0.clone())
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
-pub struct AccountInit {
-    pub public_key: PublicKey,
-    pub balance: u128,
-    pub stake: u128,
-}
-
 pub async fn genesis_block_body<HL: HashLookup + HashPut>(
     hl: &mut HL,
     account_inits: &Vec<AccountInit>,
@@ -151,8 +143,7 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
         })
         .await?;
     for init in account_inits {
-        let (_, acct_node_body) =
-            initialize_account_node(hl, None, init.public_key, init.balance, init.stake).await?;
+        let (_, acct_node_body) = initialize_account_node(hl, None, init).await?;
         let acct_node = hl
             .put(&QuorumNode {
                 body: acct_node_body,

@@ -7,7 +7,8 @@ use crate::account_transform::{
     field_balance, field_public_key, field_stake, run_action, AccountTransform,
 };
 use crate::blockdata::{
-    Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren, RadixHashNode,
+    AccountInit, Action, DataNode, MainBlock, QuorumNodeBody, QuorumNodeStats, RadixChildren,
+    RadixHashNode,
 };
 use crate::crypto::{hash, Hash, HashCode};
 use crate::hashlookup::{HashLookup, HashPut};
@@ -142,20 +143,21 @@ async fn insert_into_data_tree<'a, HL: HashLookup + HashPut>(
 pub async fn initialize_account_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
     last_main: Option<Hash<MainBlock>>,
-    key: ed25519_dalek::PublicKey,
-    balance: u128,
-    stake: u128,
+    init: &AccountInit,
 ) -> Result<(BTreeMap<HexPath, Vec<u8>>, QuorumNodeBody), anyhow::Error> {
-    let acct = hash(&key).code;
+    let acct = hash(&init.public_key).code;
     let mut fields = BTreeMap::new();
     fields.insert(
         field_balance().path,
-        rmp_serde::to_vec_named(&balance).unwrap(),
+        rmp_serde::to_vec_named(&init.balance).unwrap(),
     );
-    fields.insert(field_stake().path, rmp_serde::to_vec_named(&stake).unwrap());
+    fields.insert(
+        field_stake().path,
+        rmp_serde::to_vec_named(&init.stake).unwrap(),
+    );
     fields.insert(
         field_public_key().path,
-        rmp_serde::to_vec_named(&key).unwrap(),
+        rmp_serde::to_vec_named(&init.public_key).unwrap(),
     );
     let mut data_tree: Hash<DataNode> = hl
         .put(&DataNode {
@@ -178,7 +180,7 @@ pub async fn initialize_account_node<HL: HashLookup + HashPut>(
             new_nodes: node_count as u64,
             fee: 0,
             gas: 0,
-            stake,
+            stake: init.stake,
             prize: 0,
         },
     };
