@@ -176,7 +176,7 @@ impl RadixHashNode for QuorumNode {
         self.body.stats = QuorumNodeStats::zero();
         self.body.stats.prize = self.body.prize;
         self.body.stats.new_nodes = 1;
-        for (suffix, hash_child) in self.body.children.0.iter().filter_map(|x| x.as_ref()) {
+        for (suffix, hash_child) in self.body.children.iter_entries() {
             let child = hl.lookup(*hash_child).await?;
             if child.body.path != [&self.body.path[..], &suffix[..]].concat() {
                 bail!(
