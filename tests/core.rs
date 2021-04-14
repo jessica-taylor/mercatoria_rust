@@ -1,4 +1,3 @@
-
 use mercatoria_rust::blockdata::{
     AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
     QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
@@ -37,7 +36,11 @@ async fn test_genesis_block(
     assert_eq!(hash_opts, main.options);
     let expected_state = genesis_state(&inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
-    assert_eq!(expected_state, actual_state);
+    assert_eq!(
+        expected_state, actual_state,
+        "{} versus {}",
+        expected_state, actual_state
+    );
     verify_valid_main_block_body(&hl, &main).await.unwrap();
     (hl, main)
 }

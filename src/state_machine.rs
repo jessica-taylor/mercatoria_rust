@@ -112,6 +112,16 @@ impl MainState {
     }
 }
 
+impl fmt::Display for MainState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MainState {{")?;
+        for (path, acct) in &self.accounts {
+            write!(f, "\n  {:?}: {}", path, acct)?;
+        }
+        write!(f, "}}")
+    }
+}
+
 fn get_account_states_under<'a, HL: HashLookup>(
     hl: &'a HL,
     node_hash: Hash<QuorumNode>,
