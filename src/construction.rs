@@ -145,7 +145,6 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
     let opts_hash = hl.put(&opts).await?;
     for init in account_inits {
         let (_, acct_node_body) = initialize_account_node(hl, None, init).await?;
-        let path = acct_node_body.path.clone();
         let acct_node = hl
             .put(&QuorumNode {
                 body: acct_node_body,

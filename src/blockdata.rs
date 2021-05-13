@@ -276,7 +276,7 @@ pub struct Action {
 pub struct SendInfo {
     pub last_main: Hash<MainBlock>,
     pub sender: HashCode,
-    pub recipient: Option<HashCode>,
+    pub recipient: HashCode,
     pub send_amount: u128,
     pub initialize_spec: Option<Hash<Vec<u8>>>,
     pub message: Vec<u8>,

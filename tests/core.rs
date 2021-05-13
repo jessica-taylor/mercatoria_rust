@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
 
-use mercatoria_rust::account_construction::insert_into_data_tree;
+use mercatoria_rust::account_construction::{add_action_to_account, insert_into_data_tree};
 use mercatoria_rust::blockdata::{
     AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
     QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
@@ -77,16 +77,39 @@ async fn test_genesis_block(
     (hl, main)
 }
 
-// async fn test_send_and_receive(
-//     hl: &mut MapHashLookup,
-//     start_main: &MainBlockBody,
-//     _sender_ix: u32,
-//     _receiver_ix: u32,
-//     _amount: u64,
-// ) {
-//     let _start_state = get_main_state(hl, start_main).await.unwrap();
-//     // let acct_states =
-// }
+async fn test_send_and_receive(
+    hl: &mut MapHashLookup,
+    start_main: &MainBlock,
+    sender_ix: u32,
+    receiver_ix: u32,
+    fee: u64,
+    amount: u64,
+) -> Result<(), anyhow::Error> {
+    let start_state = get_main_state(hl, start_main).await.unwrap();
+    let accts = start_main.accounts.keys();
+    let sender = accts[sender_ix % accts.len()];
+    let receiver = accts[receiver_ix % accts.len()];
+    // pub last_main: Hash<MainBlock>,
+    // pub fee: u128,
+    // pub command: Vec<u8>,
+    // pub args: Vec<Vec<u8>>,
+    // let send_act = Action {
+    //     last_main: hash(start_main),
+    //     fee,
+    //     command: b"send",
+    //     args: vec![
+    // pub last_main: Hash<MainBlock>,
+    // pub fee: u128,
+    // pub command: Vec<u8>,
+    // pub args: Vec<Vec<u8>>,
+    // };
+    // let new_sender_acct = add_action_to_account(hl, start_main, sender,
+    // hl: &mut HL,
+    // last_main: &MainBlock,
+    // account: HashCode,
+    // action: &Action,
+    // prize: u128,
+}
 
 fn test_options() -> MainOptions {
     MainOptions {

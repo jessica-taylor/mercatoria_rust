@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 use anyhow::bail;
 use async_trait::*;
+use ed25519_dalek::Signer;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::blockdata::{Action, MainBlock, SendInfo};
@@ -223,7 +224,7 @@ async fn do_receive<'a, HL: HashLookup>(
     if hash(&send) != send_hash {
         bail!("send hashes don't match");
     }
-    if send.recipient != Some(at.this_account) {
+    if send.recipient != at.this_account {
         bail!("recipient of send doesn't match recipient");
     }
     let received_field = field_received(send_hash);
@@ -289,7 +290,7 @@ pub async fn run_action<'a, HL: HashLookup>(
         let send = SendInfo {
             last_main: action.last_main,
             sender: at.this_account,
-            recipient: Some(recipient),
+            recipient,
             send_amount,
             initialize_spec,
             message,
@@ -311,4 +312,62 @@ pub async fn run_action<'a, HL: HashLookup>(
         bail!("unknown command {:?}", action.command);
     }
     Ok(())
+}
+
+/// Creates a send action.
+pub fn mk_send(
+    last_main: Hash<MainBlock>,
+    fee: u128,
+    recipient: HashCode,
+    send_amount: u128,
+    initialize_spec: Option<Hash<Vec<u8>>>,
+    message: Vec<u8>,
+    key: ed25519_dalek::Keypair,
+) -> (Action, SendInfo) {
+    let mut act = Action {
+        last_main,
+        fee,
+        command: b"send".to_vec(),
+        args: vec![
+            rmp_serde::to_vec_named(&recipient).unwrap(),
+            rmp_serde::to_vec_named(&send_amount).unwrap(),
+            rmp_serde::to_vec_named(&initialize_spec).unwrap(),
+            rmp_serde::to_vec_named(&message).unwrap(),
+            vec![],
+        ],
+    };
+    act.args[4] =
+        rmp_serde::to_vec_named(&key.sign(&rmp_serde::to_vec_named(&act).unwrap())).unwrap();
+    let si = SendInfo {
+        last_main,
+        sender: hash(&key.public).code,
+        recipient,
+        send_amount,
+        initialize_spec,
+        message,
+    };
+    (act, si)
+}
+
+/// Creates a receive action.
+pub fn mk_receive(
+    last_main: Hash<MainBlock>,
+    fee: u128,
+    sender: HashCode,
+    send_hash: Hash<SendInfo>,
+    key: ed25519_dalek::Keypair,
+) -> Action {
+    let mut act = Action {
+        last_main,
+        fee,
+        command: b"receive".to_vec(),
+        args: vec![
+            rmp_serde::to_vec_named(&sender).unwrap(),
+            rmp_serde::to_vec_named(&send_hash).unwrap(),
+            vec![],
+        ],
+    };
+    act.args[2] =
+        rmp_serde::to_vec_named(&key.sign(&rmp_serde::to_vec_named(&act).unwrap())).unwrap();
+    act
 }
