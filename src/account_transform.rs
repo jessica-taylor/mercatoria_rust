@@ -322,7 +322,7 @@ pub fn mk_send(
     send_amount: u128,
     initialize_spec: Option<Hash<Vec<u8>>>,
     message: Vec<u8>,
-    key: ed25519_dalek::Keypair,
+    key: &ed25519_dalek::Keypair,
 ) -> (Action, SendInfo) {
     let mut act = Action {
         last_main,

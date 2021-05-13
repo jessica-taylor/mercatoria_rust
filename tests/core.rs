@@ -98,13 +98,16 @@ async fn test_send_and_receive(
         .collect();
     let sender = accts[(sender_ix as usize) % accts.len()];
     let receiver = accts[(receiver_ix as usize) % accts.len()];
+    let (send_act, send_info) = mk_send(
+        hash(start_main),
+        fee as u128,
+        receiver,
+        amount as u128,
+        None,
+        vec![],
+        keys.get(&sender).unwrap(),
+    );
     Ok(())
-    // let (send_act, send_info) = mk_send(
-    //     hash(start_main),
-    //     fee,
-    //     receiver,
-    //     None,
-    //     vec![],
     // recipient: HashCode,
     // send_amount: u128,
     // initialize_spec: Option<Hash<Vec<u8>>>,
