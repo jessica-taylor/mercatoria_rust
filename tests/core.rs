@@ -53,23 +53,23 @@ async fn test_insert_into_data_tree(
 }
 
 async fn test_genesis_block(
-    inits: &Vec<(AccountInit, Keypair)>,
+    inits: &Vec<AccountInit>,
+    keys: &BTreeMap<HashCode, Keypair>,
     mut timestamp_ms: i64,
     opts: MainOptions,
 ) -> (MapHashLookup, MainBlockBody) {
-    let acct_inits = inits.into_iter().map(|x| x.0.clone()).collect();
     timestamp_ms =
         (timestamp_ms % (opts.timestamp_period_ms as i64)) * (opts.timestamp_period_ms as i64);
     let hash_opts = hash(&opts);
     let mut hl = MapHashLookup::new();
-    let main = genesis_block_body(&mut hl, &acct_inits, timestamp_ms, opts)
+    let main = genesis_block_body(&mut hl, &inits, timestamp_ms, opts)
         .await
         .unwrap();
     assert_eq!(None, main.prev, "genesis main.prev");
     assert_eq!(0, main.version, "genesis main.version");
     assert_eq!(timestamp_ms, main.timestamp_ms, "genesis timestamp_ms");
     assert_eq!(hash_opts, main.options, "genesis options");
-    let expected_state = genesis_state(&acct_inits).await;
+    let expected_state = genesis_state(&inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(
         expected_state, actual_state,
@@ -82,6 +82,7 @@ async fn test_genesis_block(
 
 async fn test_send_and_receive(
     hl: &mut MapHashLookup,
+    keys: &BTreeMap<HashCode, Keypair>,
     start_main: &MainBlock,
     sender_ix: u32,
     receiver_ix: u32,
@@ -159,6 +160,6 @@ proptest! {
         inits in account_inits(),
         timestamp_ms in prop::num::i32::ANY
     ) {
-        smol::block_on(test_genesis_block(&inits, timestamp_ms as i64, test_options()));
+        smol::block_on(test_genesis_block(&inits.0, &inits.1, timestamp_ms as i64, test_options()));
     }
 }

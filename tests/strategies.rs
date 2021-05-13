@@ -1,6 +1,7 @@
 use ed25519_dalek::Keypair;
 use mercatoria_rust::{blockdata::*, crypto};
 use proptest::prelude::*;
+use std::collections::BTreeMap;
 
 prop_compose! {
     pub fn account_init_strategy()
@@ -16,6 +17,15 @@ prop_compose! {
     }
 }
 
-pub fn account_inits() -> impl Strategy<Value = Vec<(AccountInit, Keypair)>> {
-    prop::collection::vec(account_init_strategy(), 0..100)
+pub fn account_inits(
+) -> impl Strategy<Value = (Vec<AccountInit>, BTreeMap<crypto::HashCode, Keypair>)> {
+    prop::collection::vec(account_init_strategy(), 0..100).prop_map(|inits_keys| {
+        let mut inits = Vec::new();
+        let mut map = BTreeMap::new();
+        for (init, key) in inits_keys {
+            map.insert(crypto::hash(&init.public_key).code, key);
+            inits.push(init);
+        }
+        (inits, map)
+    })
 }
