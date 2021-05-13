@@ -104,22 +104,28 @@ impl<G: ComputeGraph> ComputeNode<G> {
             .ok_or_else(|| anyhow!("a computation with a timestamp must have an Inputs state"))?;
 
         let g = &self.graph;
-        stream::iter(comps.into_iter().map(Ok))
-            .try_for_each_concurrent(None, |(c, m)| async move {
-                let msgs = g.run_comp(c, m).await?;
-                stream::iter(msgs.into_iter().map(Ok))
-                    .try_for_each_concurrent(None, |m| async move {
-                        if let Some(c) = g.message_comp(&m).await? {
-                            let addrs = g.who_runs(&c).await?;
-                            stream::iter(addrs.into_iter().map(Ok))
-                                .try_for_each_concurrent(None, |a| send_msg(&c, &m, a))
-                                .await?;
-                        }
-
-                        Ok(())
-                    })
-                    .await
+        stream::iter(comps)
+            .map(|(c, m)| g.run_comp(c, m))
+            .buffer_unordered(64)
+            // stream output messages and flatten
+            .map_ok(|msgs| stream::iter(msgs).map(Ok))
+            .try_flatten()
+            // send messages
+            .map_ok(|m| async move {
+                if let Some(c) = g.message_comp(&m).await? {
+                    let addrs = g.who_runs(&c).await?;
+                    stream::iter(addrs)
+                        .map(|a| send_msg(&c, &m, a))
+                        .buffer_unordered(64)
+                        .try_collect()
+                        .await
+                } else {
+                    Ok(())
+                }
             })
+            .try_buffer_unordered(64)
+            // wait until they're all done, fail at first failure
+            .try_collect()
             .await
     }
 }

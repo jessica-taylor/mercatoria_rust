@@ -1,6 +1,6 @@
 use async_trait::*;
 use chrono::prelude::*;
-use futures_lite::prelude::*;
+use futures::stream::Stream;
 use serde::{de::DeserializeOwned, *};
 
 pub mod graph;
