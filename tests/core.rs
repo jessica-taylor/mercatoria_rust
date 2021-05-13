@@ -1,13 +1,15 @@
+use ed25519_dalek::Keypair;
 use std::collections::BTreeMap;
-use std::iter::FromIterator;
+use std::iter::{FromIterator, Map};
 
 use mercatoria_rust::account_construction::{add_action_to_account, insert_into_data_tree};
+use mercatoria_rust::account_transform::{mk_receive, mk_send};
 use mercatoria_rust::blockdata::{
     AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
     QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
 };
 use mercatoria_rust::construction::{best_super_node, genesis_block_body, next_main_block_body};
-use mercatoria_rust::crypto::{hash, Hash};
+use mercatoria_rust::crypto::{hash, Hash, HashCode};
 use mercatoria_rust::hashlookup::{HashLookup, HashPut, MapHashLookup};
 use mercatoria_rust::hex_path::HexPath;
 
@@ -51,22 +53,23 @@ async fn test_insert_into_data_tree(
 }
 
 async fn test_genesis_block(
-    inits: &Vec<AccountInit>,
+    inits: &Vec<(AccountInit, Keypair)>,
     mut timestamp_ms: i64,
     opts: MainOptions,
 ) -> (MapHashLookup, MainBlockBody) {
+    let acct_inits = inits.into_iter().map(|x| x.0.clone()).collect();
     timestamp_ms =
         (timestamp_ms % (opts.timestamp_period_ms as i64)) * (opts.timestamp_period_ms as i64);
     let hash_opts = hash(&opts);
     let mut hl = MapHashLookup::new();
-    let main = genesis_block_body(&mut hl, &inits, timestamp_ms, opts)
+    let main = genesis_block_body(&mut hl, &acct_inits, timestamp_ms, opts)
         .await
         .unwrap();
     assert_eq!(None, main.prev, "genesis main.prev");
     assert_eq!(0, main.version, "genesis main.version");
     assert_eq!(timestamp_ms, main.timestamp_ms, "genesis timestamp_ms");
     assert_eq!(hash_opts, main.options, "genesis options");
-    let expected_state = genesis_state(&inits).await;
+    let expected_state = genesis_state(&acct_inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(
         expected_state, actual_state,
@@ -85,10 +88,28 @@ async fn test_send_and_receive(
     fee: u64,
     amount: u64,
 ) -> Result<(), anyhow::Error> {
-    let start_state = get_main_state(hl, start_main).await.unwrap();
-    let accts = start_main.accounts.keys();
-    let sender = accts[sender_ix % accts.len()];
-    let receiver = accts[receiver_ix % accts.len()];
+    let start_state = get_main_state(hl, &start_main.block.body).await.unwrap();
+    let accts: Vec<HashCode> = start_state
+        .accounts
+        .keys()
+        .into_iter()
+        .map(|x| x.clone())
+        .collect();
+    let sender = accts[(sender_ix as usize) % accts.len()];
+    let receiver = accts[(receiver_ix as usize) % accts.len()];
+    Ok(())
+    // let (send_act, send_info) = mk_send(
+    //     hash(start_main),
+    //     fee,
+    //     receiver,
+    //     None,
+    //     vec![],
+    // recipient: HashCode,
+    // send_amount: u128,
+    // initialize_spec: Option<Hash<Vec<u8>>>,
+    // message: Vec<u8>,
+    // key: ed25519_dalek::Keypair,
+
     // pub last_main: Hash<MainBlock>,
     // pub fee: u128,
     // pub command: Vec<u8>,

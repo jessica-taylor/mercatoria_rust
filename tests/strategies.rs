@@ -1,20 +1,21 @@
+use ed25519_dalek::Keypair;
 use mercatoria_rust::{blockdata::*, crypto};
 use proptest::prelude::*;
 
 prop_compose! {
     pub fn account_init_strategy()
             (balance in prop::num::u64::ANY, stake in prop::num::u64::ANY)
-            -> AccountInit {
+            -> (AccountInit, Keypair) {
         let keys = crypto::gen_private_key();
         let public_key = keys.public;
-        AccountInit {
+        (AccountInit {
             public_key,
             balance: balance as u128,
             stake: stake as u128
-        }
+        }, keys)
     }
 }
 
-pub fn account_inits() -> impl Strategy<Value = Vec<AccountInit>> {
+pub fn account_inits() -> impl Strategy<Value = Vec<(AccountInit, Keypair)>> {
     prop::collection::vec(account_init_strategy(), 0..100)
 }
