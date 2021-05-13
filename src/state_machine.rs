@@ -61,9 +61,9 @@ impl fmt::Display for AccountState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "AccountState {{")?;
         for (path, value) in &self.fields {
-            write!(f, "\n  {}: {:?}", path, value)?;
+            write!(f, "\n    {}: {:?}", path, value)?;
         }
-        write!(f, "}}")
+        write!(f, "\n  }}")
     }
 }
 
@@ -116,9 +116,9 @@ impl fmt::Display for MainState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "MainState {{")?;
         for (path, acct) in &self.accounts {
-            write!(f, "\n  {:?}: {}", path, acct)?;
+            write!(f, "\n  {}: {}", bytes_to_path(path), acct)?;
         }
-        write!(f, "}}")
+        write!(f, "\n}}")
     }
 }
 

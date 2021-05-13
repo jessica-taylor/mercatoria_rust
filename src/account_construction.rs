@@ -28,7 +28,7 @@ impl<N> RadixChildren<N> {
     }
 }
 
-/// Modifies a `DataNode` to insert a new child.
+/// Modifies a `RadixHashNode` to insert a new child.
 async fn rh_node_insert_child<HL: HashLookup + HashPut, N: RadixHashNode>(
     hl: &mut HL,
     node_count: &mut usize,
@@ -43,10 +43,15 @@ async fn rh_node_insert_child<HL: HashLookup + HashPut, N: RadixHashNode>(
 }
 
 /// Modifies a node at a given path in a radix hash tree.
+/// `node_count` is incremented by the number of nodes created.
+/// `path` is the path to insert at.
+/// `get_new_node` is called with the old node (if it exists), getting the node to insert.
+/// `hash_tree` is the top of the initial tree.
+/// Returns the top of the new tree.
 pub fn insert_into_rh_tree<
     'a,
     HL: HashLookup + HashPut,
-    N: 'a + RadixHashNode,
+    N: 'a + RadixHashNode + core::fmt::Debug,
     GN: 'a + Send + Sized + FnOnce(Option<N>) -> Result<N, anyhow::Error>,
 >(
     hl: &'a mut HL,
@@ -63,22 +68,27 @@ pub fn insert_into_rh_tree<
             return hl.put(&get_new_node(Some(tree))?).await;
         } else if let Some((suffix, child_hash)) = tree.get_children().0[path[0].0 as usize].clone()
         {
-            let path = &path[1..];
-            if is_prefix(&suffix[..], path) {
+            if is_prefix(&suffix[..], &path[1..]) {
                 // modify the child
                 let new_child_hash = insert_into_rh_tree(
                     hl,
                     node_count,
-                    &path[suffix.len()..],
+                    &path[1 + suffix.len()..],
                     get_new_node,
                     child_hash,
                 )
                 .await?;
-                return rh_node_insert_child(hl, node_count, &suffix[..], new_child_hash, tree)
-                    .await;
+                return rh_node_insert_child(
+                    hl,
+                    node_count,
+                    &path[..1 + suffix.len()],
+                    new_child_hash,
+                    tree,
+                )
+                .await;
             } else {
                 // create an intermediate node
-                let pref_len = longest_prefix_length(path, &suffix[..]);
+                let pref_len = longest_prefix_length(&path[1..], &suffix[..]);
                 *node_count += 1;
                 let mut new_child_hash = hl
                     .put(
@@ -93,7 +103,7 @@ pub fn insert_into_rh_tree<
                 new_child_hash = insert_into_rh_tree(
                     hl,
                     node_count,
-                    &path[pref_len..],
+                    &path[1 + pref_len..],
                     get_new_node,
                     new_child_hash,
                 )
@@ -101,7 +111,7 @@ pub fn insert_into_rh_tree<
                 return rh_node_insert_child(
                     hl,
                     node_count,
-                    &path[0..pref_len],
+                    &path[..1 + pref_len],
                     new_child_hash,
                     tree,
                 )

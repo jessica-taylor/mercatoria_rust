@@ -43,7 +43,10 @@ async fn test_insert_into_data_tree(
     }
     let actual_state = get_account_state(&hl, hash_node).await.unwrap();
     let expected_state = BTreeMap::from_iter(entries.clone().into_iter());
-    assert_eq!(expected_state, actual_state.fields);
+    assert_eq!(
+        expected_state, actual_state.fields,
+        "insert_into_data_tree should produce expected result"
+    );
     (hl, hash_node)
 }
 
@@ -59,15 +62,15 @@ async fn test_genesis_block(
     let main = genesis_block_body(&mut hl, &inits, timestamp_ms, opts)
         .await
         .unwrap();
-    assert_eq!(None, main.prev);
-    assert_eq!(0, main.version);
-    assert_eq!(timestamp_ms, main.timestamp_ms);
-    assert_eq!(hash_opts, main.options);
+    assert_eq!(None, main.prev, "genesis main.prev");
+    assert_eq!(0, main.version, "genesis main.version");
+    assert_eq!(timestamp_ms, main.timestamp_ms, "genesis timestamp_ms");
+    assert_eq!(hash_opts, main.options, "genesis options");
     let expected_state = genesis_state(&inits).await;
     let actual_state = get_main_state(&hl, &main).await.unwrap();
     assert_eq!(
         expected_state, actual_state,
-        "{} versus {}",
+        "genesis state: {} versus {}",
         expected_state, actual_state
     );
     verify_valid_main_block_body(&hl, &main).await.unwrap();
@@ -100,6 +103,9 @@ fn test_options() -> MainOptions {
 }
 
 proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 10, .. ProptestConfig::default()
+    })]
     #[test]
     fn proptest_insert_into_data_tree(entries: Vec<(HexPath, Vec<u8>)>) {
         smol::block_on(test_insert_into_data_tree(&entries));
