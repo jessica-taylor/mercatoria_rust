@@ -161,6 +161,16 @@ pub struct QuorumNode {
     pub signatures: Option<Hash<Vec<Signature<QuorumNodeBody>>>>,
 }
 
+impl QuorumNodeBody {
+    // TODO: grep for QuorumNode { ... None }, replace
+    pub fn into_unsigned(self) -> QuorumNode {
+        QuorumNode {
+            body: self,
+            signatures: None,
+        }
+    }
+}
+
 #[async_trait]
 impl RadixHashNode for QuorumNode {
     fn get_children(&self) -> &RadixHashChildren<Self> {

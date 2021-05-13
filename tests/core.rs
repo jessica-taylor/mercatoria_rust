@@ -1,17 +1,14 @@
 use ed25519_dalek::Keypair;
 use std::collections::BTreeMap;
-use std::iter::{FromIterator, Map};
+use std::iter::FromIterator;
 
-use mercatoria_rust::account_construction::{add_action_to_account, insert_into_data_tree};
-use mercatoria_rust::account_transform::{mk_receive, mk_send};
-use mercatoria_rust::blockdata::{
-    AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
-    QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
-};
-use mercatoria_rust::construction::{best_super_node, genesis_block_body, next_main_block_body};
-use mercatoria_rust::crypto::{hash, Hash, HashCode};
-use mercatoria_rust::hashlookup::{HashLookup, HashPut, MapHashLookup};
-use mercatoria_rust::hex_path::HexPath;
+use mercatoria_rust::account_construction::*;
+use mercatoria_rust::account_transform::*;
+use mercatoria_rust::blockdata::*;
+use mercatoria_rust::construction::*;
+use mercatoria_rust::crypto::*;
+use mercatoria_rust::hashlookup::*;
+use mercatoria_rust::hex_path::*;
 
 use mercatoria_rust::state_machine::{genesis_state, get_account_state, get_main_state};
 
@@ -54,7 +51,7 @@ async fn test_insert_into_data_tree(
 
 async fn test_genesis_block(
     inits: &Vec<AccountInit>,
-    keys: &BTreeMap<HashCode, Keypair>,
+    _keys: &BTreeMap<HashCode, Keypair>,
     mut timestamp_ms: i64,
     opts: MainOptions,
 ) -> (MapHashLookup, MainBlockBody) {
@@ -80,7 +77,7 @@ async fn test_genesis_block(
     (hl, main)
 }
 
-async fn test_send_and_receive(
+async fn _test_send_and_receive(
     hl: &mut MapHashLookup,
     keys: &BTreeMap<HashCode, Keypair>,
     start_main: &MainBlock,
@@ -90,15 +87,10 @@ async fn test_send_and_receive(
     amount: u64,
 ) -> Result<(), anyhow::Error> {
     let start_state = get_main_state(hl, &start_main.block.body).await.unwrap();
-    let accts: Vec<HashCode> = start_state
-        .accounts
-        .keys()
-        .into_iter()
-        .map(|x| x.clone())
-        .collect();
+    let accts: Vec<HashCode> = start_state.accounts.keys().cloned().collect();
     let sender = accts[(sender_ix as usize) % accts.len()];
     let receiver = accts[(receiver_ix as usize) % accts.len()];
-    let (send_act, send_info) = mk_send(
+    let (send_act, _send_info) = mk_send(
         hash(start_main),
         fee as u128,
         receiver,
@@ -107,6 +99,11 @@ async fn test_send_and_receive(
         vec![],
         keys.get(&sender).unwrap(),
     );
+    let sender_new_node = add_action_to_account(hl, start_main, sender, &send_act, 0)
+        .await?
+        .into_unsigned();
+    let _sender_new_hash = hl.put(&sender_new_node).await?;
+
     Ok(())
     // recipient: HashCode,
     // send_amount: u128,

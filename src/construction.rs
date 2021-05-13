@@ -4,16 +4,14 @@ use anyhow::bail;
 
 use crate::account_construction::{initialize_account_node, insert_into_rh_tree};
 use crate::blockdata::{
-    AccountInit, Action, DataNode, MainBlock, MainBlockBody, MainOptions, PreSignedMainBlock,
-    QuorumNode, QuorumNodeBody, QuorumNodeStats, RadixChildren,
+    AccountInit, MainBlock, MainBlockBody, MainOptions, QuorumNode, QuorumNodeBody,
+    QuorumNodeStats, RadixChildren,
 };
-use crate::crypto::{hash, path_to_hash_code, verify_sig, Hash, HashCode};
+use crate::crypto::Hash;
 use crate::hashlookup::{HashLookup, HashPut};
 use crate::hex_path::{is_prefix, HexPath};
-use crate::queries::{
-    longest_prefix_length, lookup_account, lookup_quorum_node, quorums_by_prev_block,
-};
-use crate::state_machine::get_main_state;
+use crate::queries::lookup_quorum_node;
+
 use crate::verification::verify_endorsed_quorum_node;
 
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(

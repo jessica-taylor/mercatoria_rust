@@ -3,6 +3,8 @@ use chrono::prelude::*;
 use futures_lite::prelude::*;
 use serde::{de::DeserializeOwned, *};
 
+pub mod graph;
+
 #[async_trait]
 pub trait Network: Sized {
     type Pid: Send + Sync + Serialize + DeserializeOwned + Eq + PartialEq + Clone + 'static;
