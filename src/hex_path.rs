@@ -1,3 +1,5 @@
+//! Hexadecimal strings, which may represent paths in a hexadecimal radix hash tree.
+
 use proptest::arbitrary::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::convert::AsRef;
@@ -56,15 +58,22 @@ impl AsRef<Vec<u4>> for HexPath {
 }
 
 impl HexPath {
+    /// Iterates over the hex digits.
     pub fn iter(&self) -> impl Iterator<Item = &u4> {
         self.0.iter()
     }
+
+    /// Iterates over the hex digits.
     pub fn into_iter(self) -> impl Iterator<Item = u4> {
         self.0.into_iter()
     }
+
+    /// Gets the number of hex digits.
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Determines whether the path is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

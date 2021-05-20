@@ -1,3 +1,4 @@
+//! Functionality for verifying parts of the blockchain.
 use std::collections::BTreeSet;
 use std::future::Future;
 use std::pin::Pin;

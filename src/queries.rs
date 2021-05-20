@@ -1,3 +1,5 @@
+//! Functions to fetch blockchain data using `HashLookup`.
+
 use crate::blockdata::{DataNode, MainBlock, MainBlockBody, QuorumNode, RadixHashNode};
 use crate::crypto::{hash, path_to_hash_code, HashCode};
 use crate::hashlookup::HashLookup;

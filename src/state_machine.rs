@@ -1,3 +1,13 @@
+//! A simplified state machine to represent the state of the blockchain over time.  This is used
+//! in testing to check that the more complex blockchain transformation operations are consistent
+//! with these simple semantics.
+//!
+//! Basically, we check that the following diagram commutes:
+//!
+//! main block 1  ------> main block 2
+//!   |                     |
+//!   v                     v
+//! state 1       ------> state 2
 use std::collections::BTreeMap;
 use std::fmt;
 use std::future::Future;
@@ -16,18 +26,22 @@ use crate::crypto::{hash, path_to_hash_code, Hash, HashCode};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
 
+/// The state of an account.
 #[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct AccountState {
+    /// A mapping from field to value.
     pub fields: BTreeMap<HexPath, Vec<u8>>,
 }
 
 impl AccountState {
+    /// An account state with no fields.
     pub fn empty() -> AccountState {
         AccountState {
             fields: BTreeMap::new(),
         }
     }
 
+    /// The sends sent by this account.
     pub fn sends(&self) -> Vec<SendInfo> {
         let mut res = Vec::new();
         for (path, value) in &self.fields {
@@ -38,6 +52,7 @@ impl AccountState {
         res
     }
 
+    /// Whether this account has received a given send.
     pub fn has_received(&self, send: &SendInfo) -> bool {
         match self.fields.get(&field_received(hash(send)).path) {
             None => false,
@@ -45,11 +60,13 @@ impl AccountState {
         }
     }
 
+    /// The balance of the account.
     pub fn balance(&self) -> u128 {
         rmp_serde::from_read::<_, u128>(self.fields.get(&field_balance().path).unwrap().as_slice())
             .unwrap()
     }
 
+    /// The stake of the account.
     pub fn stake(&self) -> u128 {
         rmp_serde::from_read::<_, u128>(self.fields.get(&field_stake().path).unwrap().as_slice())
             .unwrap()
@@ -66,6 +83,7 @@ impl fmt::Display for AccountState {
     }
 }
 
+/// Collects field values in a given data tree into the `AccountState`.
 fn add_data_tree_to_account_state<'a, HL: HashLookup>(
     hl: &'a HL,
     path: HexPath,
@@ -89,6 +107,7 @@ fn add_data_tree_to_account_state<'a, HL: HashLookup>(
     .boxed()
 }
 
+/// Gets an account state from a top `DataNode`.
 pub async fn get_account_state<HL: HashLookup>(
     hl: &HL,
     node: Hash<DataNode>,
@@ -98,12 +117,15 @@ pub async fn get_account_state<HL: HashLookup>(
     Ok(state)
 }
 
+/// The state of the main block.
 #[derive(Eq, PartialEq, Debug, Deserialize, Serialize, Clone)]
 pub struct MainState {
+    /// A mapping from account to the account's state.
     pub accounts: BTreeMap<HashCode, AccountState>,
 }
 
 impl MainState {
+    /// An empty `MainState`.
     pub fn empty() -> MainState {
         MainState {
             accounts: BTreeMap::new(),
@@ -121,6 +143,7 @@ impl fmt::Display for MainState {
     }
 }
 
+/// Collects account states under a given `QuorumNode` into a `MainState`.
 fn get_account_states_under<'a, HL: HashLookup>(
     hl: &'a HL,
     node_hash: Hash<QuorumNode>,
@@ -143,6 +166,7 @@ fn get_account_states_under<'a, HL: HashLookup>(
     .boxed()
 }
 
+/// Gets the `MainState` corresponding to a `MainBlockBody`.
 pub async fn get_main_state<HL: HashLookup>(
     hl: &HL,
     main: &MainBlockBody,
@@ -152,6 +176,7 @@ pub async fn get_main_state<HL: HashLookup>(
     Ok(state)
 }
 
+/// Gets the state of the genesis block.
 pub async fn genesis_state(inits: &Vec<AccountInit>) -> MainState {
     let mut state = MainState::empty();
     for init in inits {
@@ -175,6 +200,7 @@ pub async fn genesis_state(inits: &Vec<AccountInit>) -> MainState {
     state
 }
 
+/// Computes the next account state given a previous state and an action.
 pub async fn get_next_account_state<HL: HashLookup>(
     hl: &HL,
     last_main: Hash<MainBlock>,
@@ -198,6 +224,8 @@ pub async fn get_next_account_state<HL: HashLookup>(
     }
 }
 
+/// Computes the next main state given a previous state and actions to run for some subset of
+/// accounts.
 pub async fn get_next_main_state<HL: HashLookup>(
     hl: &HL,
     last_main: Hash<MainBlock>,

@@ -1,3 +1,5 @@
+//! Cryptographic types and operations.
+
 use ed25519_dalek::{Keypair, PublicKey, Signature as Sig, Signer, Verifier};
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -11,7 +13,9 @@ pub type HashCode = [u8; 32];
 /// A blake3 hash code that is tagged as being a hash code of a particular serializable type.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hash<T> {
+    /// The hash code.
     pub code: HashCode,
+    /// Phantom data for the type `T`.
     pub(crate) phantom: std::marker::PhantomData<fn() -> T>,
 }
 
@@ -62,8 +66,11 @@ pub fn path_to_hash_code(path: HexPath) -> HashCode {
 /// An ed25519 signature that is tagged as being the signature of a particular serializable type.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Signature<T> {
+    /// The signature.
     pub sig: Sig,
+    /// THe public key.
     pub key: PublicKey,
+    /// Phantom data for the type `T`.
     phantom: std::marker::PhantomData<T>,
 }
 

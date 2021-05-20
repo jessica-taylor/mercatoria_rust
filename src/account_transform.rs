@@ -1,3 +1,4 @@
+//! Functionality for modifying accounts according to actions.
 use std::{collections::BTreeMap, marker::PhantomData};
 
 use anyhow::bail;
@@ -16,6 +17,7 @@ use crate::queries::{lookup_account, lookup_data_in_account};
 pub struct TypedDataField<T> {
     /// The path of the field in account data.
     pub path: HexPath,
+    /// Phantom data for the type `T`.
     phantom: PhantomData<T>,
 }
 
@@ -68,13 +70,18 @@ pub fn field_received(send: Hash<SendInfo>) -> TypedDataField<bool> {
     TypedDataField::from_path(path)
 }
 
-/// A context providing operations related to transforming accounts (e.g.
+/// A context providing operations related to transforming an account (e.g.
 /// running actions).
 pub struct AccountTransform<'a, HL: HashLookup> {
+    /// The `HashLookup` used to look up previous account data.
     pub hl: &'a HL,
+    /// Whether this account is initializing.
     pub is_initializing: bool,
+    /// The account being transformed.
     pub this_account: HashCode,
+    /// The hash code of the last main block.
     pub last_main: Hash<MainBlock>,
+    /// Which fields have been overwritten so far, and their most recent values.
     pub fields_set: BTreeMap<HexPath, Vec<u8>>,
 }
 
@@ -168,7 +175,7 @@ impl<'a, HL: HashLookup> AccountTransform<'a, HL> {
     }
 }
 
-// /// Causes the current account to pay a fee.
+/// Causes the current account to pay a fee.
 async fn pay_fee<'a, HL: HashLookup>(
     at: &mut AccountTransform<'a, HL>,
     fee: u128,

@@ -1,3 +1,4 @@
+//! Functionality for constructing and updating account nodes.
 use std::{collections::BTreeMap, future::Future, pin::Pin};
 
 use anyhow::*;

@@ -1,3 +1,5 @@
+//! Traits for indexing serializable values by their hash codes.
+
 use std::collections::BTreeMap;
 
 use crate::crypto::{hash_of_bytes, Hash, HashCode};
@@ -6,9 +8,13 @@ use anyhow::bail;
 use async_trait::*;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// A trait supporting looking up values by their hash code.
 #[async_trait]
 pub trait HashLookup: Send + Sync {
+    /// Looks up a byte vector by its hash code.
     async fn lookup_bytes(&self, hash: HashCode) -> Result<Vec<u8>, anyhow::Error>;
+
+    /// Looks up a serializable value by its hash code.
     async fn lookup<T: DeserializeOwned + Send>(&self, hash: Hash<T>) -> Result<T, anyhow::Error> {
         Ok(rmp_serde::from_read(
             self.lookup_bytes(hash.code).await?.as_slice(),
@@ -16,9 +22,13 @@ pub trait HashLookup: Send + Sync {
     }
 }
 
+/// A trait supporting inserting values indexed by their hash code.
 #[async_trait]
 pub trait HashPut: Send + Sync {
+    /// Inserts a byte vector by its hash code.
     async fn put_bytes(&mut self, bs: &[u8]) -> Result<HashCode, anyhow::Error>;
+
+    /// Inserts a serializable value by its hash code.
     async fn put<T: Serialize + Send + Sync>(&mut self, val: &T) -> Result<Hash<T>, anyhow::Error> {
         let code = self
             .put_bytes(&rmp_serde::to_vec_named(val).unwrap())
@@ -36,6 +46,7 @@ pub struct MapHashLookup {
 }
 
 impl MapHashLookup {
+    /// Creates a new `MapHashLookup`.
     pub fn new() -> MapHashLookup {
         MapHashLookup {
             map: BTreeMap::new(),

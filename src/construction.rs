@@ -1,3 +1,4 @@
+//! Functionality for creating and modifying the data structures of the blockchain.
 use std::collections::BTreeMap;
 
 use anyhow::bail;
@@ -14,6 +15,8 @@ use crate::queries::lookup_quorum_node;
 
 use crate::verification::verify_endorsed_quorum_node;
 
+/// Adds a descendent to a quorum node.  It does not have to be an
+/// immediate child.  It replaces any old node at that path.
 async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
     child_hash: Hash<QuorumNode>,
@@ -77,6 +80,7 @@ async fn make_immediate_parent<HL: HashLookup + HashPut>(
 }
 
 // TODO jack fixup
+/// Finds the best parent node of a set of children.
 pub async fn best_super_node<HL: HashLookup + HashPut>(
     hl: &mut HL,
     last_main: &MainBlock,
@@ -118,6 +122,7 @@ pub async fn best_super_node<HL: HashLookup + HashPut>(
     Ok(best.get(&super_path).unwrap().0.clone())
 }
 
+/// Constructs the body of the genesis block.
 pub async fn genesis_block_body<HL: HashLookup + HashPut>(
     hl: &mut HL,
     account_inits: &Vec<AccountInit>,
@@ -160,6 +165,7 @@ pub async fn genesis_block_body<HL: HashLookup + HashPut>(
     })
 }
 
+/// Creates the body of the next main block given an already-constructed quorum tree.
 pub async fn next_main_block_body<HL: HashLookup>(
     hl: &HL,
     timestamp_ms: i64,
