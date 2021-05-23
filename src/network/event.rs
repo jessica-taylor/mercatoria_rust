@@ -1,5 +1,5 @@
 //! Events that `Role`s may respond to.
-use super::message::FullMessage;
+use super::message::Message;
 use crate::blockdata::{MainBlock, MainBlockBody, QuorumNode};
 use crate::crypto::{Hash, Signature};
 use crate::network::Network;
@@ -14,5 +14,5 @@ pub enum Event<N: Network> {
     /// Some amount of time has advanced.
     Tick,
     /// A message has been received.
-    Received(FullMessage<N>),
+    Received(Message<N>),
 }

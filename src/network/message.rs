@@ -1,4 +1,6 @@
 //! Messages that network nodes may receive.
+use serde::{Deserialize, Serialize};
+
 use crate::blockdata::{Action, MainBlock, MainBlockBody, QuorumNode, QuorumNodeBody};
 use crate::crypto::{Hash, HashCode, Signature};
 use crate::hex_path::HexPath;
@@ -7,6 +9,7 @@ use crate::network::Network;
 pub type MessageId = u64;
 
 /// A reply to a `Message`.
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub enum Reply {
     /// Reply to `StoreRequest`.
     StoreReply(Option<Vec<u8>>),
@@ -15,6 +18,7 @@ pub enum Reply {
 }
 
 /// The content of a message.
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub enum MessageContent {
     /// A reply to another message.
     Reply(MessageId, Reply),
@@ -41,7 +45,8 @@ pub enum MessageContent {
 }
 
 /// A message containing extra identifying information.
-pub struct FullMessage<N: Network> {
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
+pub struct Message<N: Network> {
     /// The content of the message.
     pub content: MessageContent,
     /// The sender's `Pid`.

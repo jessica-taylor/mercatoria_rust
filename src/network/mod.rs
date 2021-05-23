@@ -8,6 +8,7 @@ pub mod graph;
 pub mod keys;
 pub mod log;
 pub mod message;
+pub mod message_sender;
 pub mod role;
 
 #[async_trait]
