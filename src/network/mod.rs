@@ -7,6 +7,7 @@ pub mod event;
 pub mod graph;
 pub mod log;
 pub mod message;
+pub mod role;
 
 #[async_trait]
 pub trait Network: Sized {

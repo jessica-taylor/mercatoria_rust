@@ -1,9 +1,14 @@
 //! Message-logging functionality.
 
+use super::role::Role;
+use super::Network;
+
 /// Logs messages.
 struct Log {
     messages: Vec<String>,
 }
+
+impl<N: Network> Role<N> for Log {}
 
 impl Log {
     /// Creates a new `Log`.
