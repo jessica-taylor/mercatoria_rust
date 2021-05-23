@@ -4,7 +4,7 @@ use super::role::Role;
 use super::Network;
 
 /// Logs messages.
-struct Log {
+pub struct Log {
     messages: Vec<String>,
 }
 
