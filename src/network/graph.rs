@@ -1,3 +1,4 @@
+//! Functionality for timed graph computations run over the network.
 #![allow(dead_code)]
 
 use super::*;
@@ -10,14 +11,28 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::future::Future;
 use std::hash::Hash;
 
+/// Specification of a timed graph computation run over the network.
 #[async_trait]
-trait ComputeGraph {
+pub trait ComputeGraph {
+    /// The type of computations.
     type Comp: Eq + Hash + Clone;
+
+    /// The type of messages (inputs/outputs of computations).
     type Msg: Eq + Hash;
+
+    /// The type of addresses (parties who send/receive messages and do computations).
     type Addr: Eq + Hash;
+
+    /// At what time should a given computation be run?  (epoch milliseconds)
     async fn when_to_run(&self, c: &Self::Comp) -> Result<i64, anyhow::Error>;
+
+    /// What set of addresses runs a given computation?
     async fn who_runs(&self, c: &Self::Comp) -> Result<Vec<Self::Addr>, anyhow::Error>;
+
+    /// What computation is a given message an input to?
     async fn message_comp(&self, m: &Self::Msg) -> Result<Option<Self::Comp>, anyhow::Error>;
+
+    /// Runs a computation with input messages, returning output messages.
     async fn run_comp(
         &self,
         c: Self::Comp,
@@ -25,20 +40,30 @@ trait ComputeGraph {
     ) -> Result<Vec<Self::Msg>, anyhow::Error>;
 }
 
+/// The state of a computation that may be run, stored by a `ComputeNode`.
 enum ComputationState<M> {
+    /// Computation has already finished.
     Done,
+    /// Computation is not run by this address.
     NotMe,
+    /// Input messages have been accumulated and the computation has not been run.
     Inputs(HashSet<M>),
 }
 
-struct ComputeNode<G: ComputeGraph> {
-    graph: G,
-    addr: G::Addr,
+/// The state of an address-having network node running computations.
+pub struct ComputeNode<G: ComputeGraph> {
+    /// The `ComputeGraph` specifying the computation graph.
+    pub graph: G,
+    /// The address of this node.
+    pub addr: G::Addr,
+    /// States of different computations.
     states: HashMap<G::Comp, ComputationState<G::Msg>>,
+    /// Computations indexed by the time at which they are run (epoch milliseconds).
     by_time: BTreeMap<i64, HashSet<G::Comp>>,
 }
 
 impl<G: ComputeGraph> ComputeNode<G> {
+    /// Receives new messages corresponding to a computation.
     pub async fn receive(
         &mut self,
         c: G::Comp,
@@ -70,6 +95,7 @@ impl<G: ComputeGraph> ComputeNode<G> {
         Ok(())
     }
 
+    /// Receives a message.
     pub async fn receive_msg(&mut self, m: G::Msg) -> Result<(), anyhow::Error> {
         if let Some(c) = self.graph.message_comp(&m).await? {
             self.receive(c, std::iter::once(m).collect()).await?;
@@ -77,10 +103,12 @@ impl<G: ComputeGraph> ComputeNode<G> {
         Ok(())
     }
 
+    /// Ensures that a computation will be run eventually.
     pub async fn receive_comp(&mut self, c: G::Comp) -> Result<(), anyhow::Error> {
         self.receive(c, std::iter::empty().collect()).await
     }
 
+    /// Updates time forward, running queued computations accordingly.
     pub async fn tick<F, Fut>(&mut self, send_msg: &F, now: i64) -> Result<(), anyhow::Error>
     where
         F: for<'a> Fn(&G::Comp, &G::Msg, G::Addr) -> Fut,

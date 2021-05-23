@@ -3,7 +3,10 @@ use chrono::prelude::*;
 use futures::stream::Stream;
 use serde::{de::DeserializeOwned, *};
 
+pub mod event;
 pub mod graph;
+pub mod log;
+pub mod message;
 
 #[async_trait]
 pub trait Network: Sized {

@@ -1,0 +1,25 @@
+//! Message-logging functionality.
+
+/// Logs messages.
+struct Log {
+    messages: Vec<String>,
+}
+
+impl Log {
+    /// Creates a new `Log`.
+    fn new() -> Log {
+        Log {
+            messages: Vec::new(),
+        }
+    }
+
+    /// Writes to the log.
+    fn write(&mut self, msg: String) {
+        self.messages.push(msg);
+    }
+
+    /// Gets a reference to the logged messages.
+    fn get_messages(&self) -> &Vec<String> {
+        &self.messages
+    }
+}
