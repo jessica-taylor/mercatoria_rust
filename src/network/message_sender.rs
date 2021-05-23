@@ -51,7 +51,7 @@ pub struct QuerySender<N: Network> {
     network: Arc<N>,
     log: Arc<Log>,
     sender: Arc<MessageSender<N>>,
-    handlers: Vec<(MessageId, i64, Box<FnOnce(Result<Reply, String>) -> ()>)>,
+    handlers: RwLock<Vec<(MessageId, i64, Box<FnOnce(Result<Reply, String>) -> ()>)>>,
 }
 
 impl<N: Network> QuerySender<N> {
@@ -61,10 +61,27 @@ impl<N: Network> QuerySender<N> {
             network,
             log,
             sender,
-            handlers: Vec::new(),
+            handlers: RwLock::new(Vec::new()),
         }
     }
-    // async fn send_and_receive_reply(&mut self, u64, N::Pid, MessageContent) -> Result<Reply, anyhow::Error> {
-    //     let mid = self.sender.reserve_message_id();
-    // }
+    /// Sends a message, returning the reply.
+    async fn send_and_receive_reply(
+        &mut self,
+        timeout_ms: u64,
+        recip: N::Pid,
+        msg: MessageContent,
+    ) -> Result<Reply, anyhow::Error> {
+        let mid = self.sender.reserve_message_id();
+        let remove_mid = || {
+            let mut handlers = self.handlers.write().unwrap();
+            for i in 0..(*handlers).len() {
+                if (*handlers)[i].0 == mid {
+                    (*handlers).remove(i);
+                    break;
+                }
+            }
+        };
+        let send_time = self.network.get_network_time().await?.timestamp();
+        panic!("not done")
+    }
 }
