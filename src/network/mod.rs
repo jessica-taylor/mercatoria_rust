@@ -5,6 +5,7 @@ use serde::{de::DeserializeOwned, *};
 
 pub mod event;
 pub mod graph;
+pub mod keys;
 pub mod log;
 pub mod message;
 pub mod role;
