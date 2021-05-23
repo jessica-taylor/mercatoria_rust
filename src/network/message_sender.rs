@@ -6,6 +6,7 @@ use super::role::Role;
 use super::Network;
 use anyhow::anyhow;
 use core::pin::Pin;
+use std::borrow::BorrowMut;
 use std::future::Future;
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
@@ -59,14 +60,22 @@ impl<N: Network> MessageSender<N> {
     }
 }
 
-struct QueryResult<R: Clone> {
-    value: RwLock<Option<R>>,
+struct QueryResult<R> {
+    value: Arc<RwLock<Option<R>>>,
 }
 
-impl<R: Clone> QueryResult<R> {
+impl<R> Clone for QueryResult<R> {
+    fn clone(&self) -> Self {
+        QueryResult {
+            value: self.value.clone(),
+        }
+    }
+}
+
+impl<R> QueryResult<R> {
     fn new() -> QueryResult<R> {
         QueryResult {
-            value: RwLock::new(None),
+            value: Arc::new(RwLock::new(None)),
         }
     }
     fn produce_result(&self, res: R) {
@@ -80,13 +89,17 @@ impl<R: Clone> QueryResult<R> {
     }
 }
 
-impl<R: Clone> Future for QueryResult<R> {
+impl<R> Future for QueryResult<R> {
     type Output = R;
     fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<R> {
-        let value = self.value.read().unwrap();
+        let mut value = self.value.write().unwrap();
         match &(*value) {
             None => Poll::Pending,
-            Some(r) => Poll::Ready(r.clone()),
+            Some(_) => {
+                let mut out = None;
+                std::mem::swap(&mut out, value.borrow_mut());
+                Poll::Ready(out.unwrap())
+            }
         }
     }
 }
@@ -96,7 +109,13 @@ pub struct QuerySender<N: Network + 'static> {
     network: Arc<N>,
     log: Arc<Log>,
     sender: Arc<MessageSender<N>>,
-    handlers: RwLock<Vec<(MessageId, i64, Box<FnOnce(Result<Reply, String>) -> ()>)>>,
+    handlers: RwLock<
+        Vec<(
+            MessageId,
+            i64,
+            Box<FnOnce(Result<Reply, anyhow::Error>) -> ()>,
+        )>,
+    >,
 }
 
 impl<N: Network + 'static> QuerySender<N> {
@@ -119,7 +138,8 @@ impl<N: Network + 'static> QuerySender<N> {
         let mid = self.sender.reserve_message_id();
         let send_time = self.network.get_network_time().await?.timestamp();
         let timeout_time = send_time + (timeout_ms as i64);
-        let mut handlers = self.handlers.write().unwrap();
+        let q_result = QueryResult::<Result<Reply, anyhow::Error>>::new();
+        let q_result2 = q_result.clone();
         let self2 = self.clone();
         let handler = move |result| {
             let mut handlers = self2.handlers.write().unwrap();
@@ -129,9 +149,11 @@ impl<N: Network + 'static> QuerySender<N> {
                     break;
                 }
             }
+            q_result2.produce_result(result);
         };
+        let mut handlers = self.handlers.write().unwrap();
         (*handlers).push((mid, timeout_time, Box::new(handler)));
         self.sender.send_message_with_id(mid, recip, msg).await?;
-        panic!("not done")
+        q_result.await
     }
 }
