@@ -1,13 +1,16 @@
 //! Sending of messages over the network.
 
+use super::event::Event;
 use super::log::Log;
 use super::message::{Message, MessageContent, MessageId, Reply};
 use super::role::Role;
 use super::Network;
 use anyhow::anyhow;
+use async_trait::*;
 use core::pin::Pin;
 use std::borrow::BorrowMut;
 use std::future::Future;
+use std::marker::Send;
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
@@ -104,18 +107,18 @@ impl<R> Future for QueryResult<R> {
     }
 }
 
+type Handler = (
+    MessageId,
+    i64,
+    Box<Send + Sync + FnOnce(Result<Reply, anyhow::Error>) -> ()>,
+);
+
 /// Sends queries (messages that receive replies)
 pub struct QuerySender<N: Network + 'static> {
     network: Arc<N>,
     log: Arc<Log>,
     sender: Arc<MessageSender<N>>,
-    handlers: RwLock<
-        Vec<(
-            MessageId,
-            i64,
-            Box<FnOnce(Result<Reply, anyhow::Error>) -> ()>,
-        )>,
-    >,
+    handlers: RwLock<Vec<Handler>>,
 }
 
 impl<N: Network + 'static> QuerySender<N> {
@@ -125,7 +128,7 @@ impl<N: Network + 'static> QuerySender<N> {
             network,
             log,
             sender,
-            handlers: RwLock::new(Vec::new()),
+            handlers: RwLock::new(Vec::<Handler>::new()),
         }
     }
     /// Sends a message, returning the reply.
@@ -140,20 +143,52 @@ impl<N: Network + 'static> QuerySender<N> {
         let timeout_time = send_time + (timeout_ms as i64);
         let q_result = QueryResult::<Result<Reply, anyhow::Error>>::new();
         let q_result2 = q_result.clone();
-        let self2 = self.clone();
         let handler = move |result| {
-            let mut handlers = self2.handlers.write().unwrap();
-            for i in 0..(*handlers).len() {
-                if (*handlers)[i].0 == mid {
-                    (*handlers).remove(i);
-                    break;
-                }
-            }
             q_result2.produce_result(result);
         };
         let mut handlers = self.handlers.write().unwrap();
         (*handlers).push((mid, timeout_time, Box::new(handler)));
         self.sender.send_message_with_id(mid, recip, msg).await?;
         q_result.await
+    }
+}
+
+#[async_trait]
+impl<N: Network + 'static + Send + Sync> Role<N> for QuerySender<N> {
+    async fn handle_event(&self, event: &Event<N>) {
+        match event {
+            Event::Received(msg) => match &msg.content {
+                MessageContent::Reply(replied_to, rep) => {
+                    let mut handlers = self.handlers.write().unwrap();
+                    for i in 0..(*handlers).len() {
+                        if (*handlers)[i].0 == *replied_to {
+                            let (_, _, handler) = (*handlers).remove(i);
+                            drop(handlers);
+                            handler(Ok(rep.clone()));
+                            return;
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Event::Tick => {
+                let curr_time = self.network.get_network_time().await.unwrap().timestamp();
+                let mut handlers = self.handlers.write().unwrap();
+                let mut ix = 0;
+                while ix < (*handlers).len() {
+                    if (*handlers)[ix].1 > curr_time {
+                        break;
+                    }
+                    ix += 1;
+                }
+                let mut done_handlers = handlers.split_off(ix);
+                std::mem::swap(&mut done_handlers, &mut *handlers);
+                drop(handlers);
+                for (_, _, handler) in done_handlers {
+                    handler(Err(anyhow!("timeout")));
+                }
+            }
+            _ => {}
+        }
     }
 }
