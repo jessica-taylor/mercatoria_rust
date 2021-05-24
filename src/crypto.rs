@@ -10,6 +10,15 @@ use crate::hex_path::HexPath;
 /// A blake3 hash code.
 pub type HashCode = [u8; 32];
 
+/// Xors two hash codes.
+pub fn xor_hash_codes(a: HashCode, b: HashCode) -> HashCode {
+    let mut c = [0; 32];
+    for i in 0..32 {
+        c[i] = a[i] ^ b[i];
+    }
+    c
+}
+
 /// A blake3 hash code that is tagged as being a hash code of a particular serializable type.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hash<T> {

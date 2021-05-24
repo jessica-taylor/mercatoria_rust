@@ -3,7 +3,6 @@
 use super::message::{Message, MessageContent, MessageId};
 use super::role::Role;
 use super::Network;
-use anyhow::anyhow;
 use std::collections::BTreeSet;
 use std::sync::RwLock;
 
