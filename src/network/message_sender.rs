@@ -83,7 +83,7 @@ impl<R> QueryResult<R> {
     }
     fn produce_result(&self, res: R) {
         let mut value = self.value.write().unwrap();
-        match (*value) {
+        match *value {
             Some(_) => panic!("wrote a query result twice"),
             None => {
                 (*value) = Some(res);
@@ -94,7 +94,7 @@ impl<R> QueryResult<R> {
 
 impl<R> Future for QueryResult<R> {
     type Output = R;
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<R> {
+    fn poll(self: Pin<&mut Self>, _ctx: &mut Context<'_>) -> Poll<R> {
         let mut value = self.value.write().unwrap();
         match &(*value) {
             None => Poll::Pending,
@@ -110,7 +110,7 @@ impl<R> Future for QueryResult<R> {
 type Handler = (
     MessageId,
     i64,
-    Box<Send + Sync + FnOnce(Result<Reply, anyhow::Error>) -> ()>,
+    Box<dyn Send + Sync + FnOnce(Result<Reply, anyhow::Error>) -> ()>,
 );
 
 /// Sends queries (messages that receive replies)

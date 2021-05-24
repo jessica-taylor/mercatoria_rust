@@ -5,7 +5,7 @@ use super::role::Role;
 use super::Network;
 use anyhow::anyhow;
 use std::collections::BTreeSet;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 /// Tracks the node's peers.
 pub struct PeerTracker<N: Network> {
