@@ -1,9 +1,9 @@
 //! The data structures used to construct the blockchain.
 
-use crate::crypto::{Hash, HashCode, Signature};
+use crate::crypto::{self, Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{is_postfix, u4, HexPath};
-use ed25519_dalek::PublicKey;
+use ed25519_dalek::{Keypair, PublicKey};
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -126,6 +126,14 @@ pub struct PreSignedMainBlock {
     pub signatures: Vec<Signature<MainBlockBody>>,
 }
 
+impl PreSignedMainBlock {
+    pub fn sign(body: MainBlockBody, keys: &Vec<&Keypair>) -> Self {
+        let signatures: Vec<Signature<MainBlockBody>> =
+            keys.iter().map(|k| crypto::sign(k, body.clone())).collect();
+        PreSignedMainBlock { body, signatures }
+    }
+}
+
 /// A `PreSignedMainBlock` signed by the miner.
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone)]
 pub struct MainBlock {
@@ -133,6 +141,13 @@ pub struct MainBlock {
     pub block: PreSignedMainBlock,
     /// The miner's signature.
     pub signature: Signature<PreSignedMainBlock>,
+}
+
+impl MainBlock {
+    pub fn sign(block: PreSignedMainBlock, key: &Keypair) -> Self {
+        let signature = crypto::sign(key, block.clone());
+        MainBlock { block, signature }
+    }
 }
 
 /// Statistics for a quorum node.

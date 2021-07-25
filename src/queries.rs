@@ -34,7 +34,7 @@ pub async fn rh_follow_path<HL: HashLookup, N: RadixHashNode>(
         let (prefix, child_hash) = children.0[ix].as_ref().unwrap();
 
         if is_prefix(&prefix[..], &rest[..]) {
-            path = &path[prefix.len()..];
+            path = &rest[prefix.len()..];
             node = hl.lookup(*child_hash).await?;
             continue;
         } else if is_prefix(&rest[..], &prefix[..]) {
