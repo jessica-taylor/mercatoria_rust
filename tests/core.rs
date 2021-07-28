@@ -147,6 +147,7 @@ async fn test_send_and_receive(
     fee: u128,
     amount: u128,
 ) -> Result<(), anyhow::Error> {
+    let start_main_hash = hash(start_main);
     let sender_pre_balance = get_balance(hl, &start_main.block.body, sender).await;
     let (send_act, _send_info) = mk_send(
         hash(start_main),
@@ -160,7 +161,16 @@ async fn test_send_and_receive(
     let sender_new_node = add_action_to_account(hl, start_main, sender, &send_act, 0)
         .await?
         .into_unsigned();
-    let _sender_new_hash = hl.put(&sender_new_node).await?;
+    let send_block_top =
+        best_super_node(hl, start_main, HexPath(vec![]), vec![(sender_new_node, 1)]).await?;
+    let send_block_top_hash = hl.put(&send_block_top).await?;
+    let send_block = next_main_block_body(
+        hl,
+        start_main.block.body.timestamp_ms + (test_options().timestamp_period_ms as i64),
+        start_main_hash,
+        send_block_top_hash,
+    )
+    .await?;
 
     // TODO finish the test by constructing two new main blocks, one with sends and one with receives
 
@@ -267,6 +277,7 @@ proptest! {
         smol::block_on(test_genesis_block(&inits.0, &inits.1, timestamp_ms as i64, test_options()));
     }
     #[test]
+    #[ignore]
     fn proptest_transfer(
         inits in account_inits(),
         timestamp_ms in prop::num::i32::ANY
