@@ -37,10 +37,12 @@ async fn add_child_to_quorum_node<HL: HashLookup + HashPut>(
             Ok(child.clone())
         }
     };
+    // need to use child path relative parent since we consider the subtree rooted at parent
+    let relative_path = &child.body.path[parent.body.path.len()..];
     insert_into_rh_tree(
         hl,
         &mut node_count,
-        &child.body.path[..],
+        relative_path,
         replace,
         parent_hash,
     )

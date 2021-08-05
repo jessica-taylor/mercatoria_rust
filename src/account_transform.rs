@@ -7,7 +7,7 @@ use ed25519_dalek::Signer;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::blockdata::{Action, MainBlock, SendInfo};
-use crate::crypto::{hash, verify_sig, Hash, HashCode, Signature};
+use crate::crypto::{hash, sign, verify_sig, Hash, HashCode, Signature};
 use crate::hashlookup::HashLookup;
 use crate::hex_path::{bytes_to_path, HexPath};
 use crate::queries::{lookup_account, lookup_data_in_account};
@@ -47,7 +47,7 @@ pub fn field_balance() -> TypedDataField<u128> {
 
 /// Account stake field.
 pub fn field_stake() -> TypedDataField<u128> {
-    TypedDataField::from_path(bytes_to_path(b"balance"))
+    TypedDataField::from_path(bytes_to_path(b"stake"))
 }
 
 /// Account public key field.
@@ -343,8 +343,7 @@ pub fn mk_send(
             vec![],
         ],
     };
-    act.args[4] =
-        rmp_serde::to_vec_named(&key.sign(&rmp_serde::to_vec_named(&act).unwrap())).unwrap();
+    act.args[4] = rmp_serde::to_vec_named(&sign(&key, &act)).unwrap();
     let si = SendInfo {
         last_main,
         sender: hash(&key.public).code,
@@ -374,7 +373,29 @@ pub fn mk_receive(
             vec![],
         ],
     };
-    act.args[2] =
-        rmp_serde::to_vec_named(&key.sign(&rmp_serde::to_vec_named(&act).unwrap())).unwrap();
+    act.args[2] = rmp_serde::to_vec_named(&sign(&key, &act)).unwrap();
     act
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::crypto;
+
+    #[test]
+    fn verify_send() {
+        let last_main = Hash::<MainBlock> {
+            code: [0; 32],
+            phantom: PhantomData,
+        };
+        let fee: u128 = 5;
+        let recipient: HashCode = [0; 32];
+        let send_amount: u128 = 25;
+        let init_spec: Option<Hash<Vec<u8>>> = None;
+        let msg: Vec<u8> = vec![];
+        let key = crypto::gen_private_key();
+        let (act, si) = mk_send(last_main, fee, recipient, send_amount, init_spec, msg, &key);
+        let res = verify_signature_argument(si.sender, &act, 4);
+        assert!(res.is_ok(), "got error: {}", res.unwrap_err());
+    }
 }

@@ -129,3 +129,16 @@ pub fn verify_sig<T: Serialize>(msg: &T, sig: &Signature<T>) -> bool {
         .verify(&rmp_serde::to_vec_named(msg).unwrap(), &sig.sig)
         .is_ok()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sign_and_verify() {
+        const MSG: &str = "This is a test message to be signed";
+        let keys = gen_private_key();
+        let signature = sign(&keys, MSG);
+        assert!(verify_sig(&MSG, &signature), "Invalid signature")
+    }
+}
